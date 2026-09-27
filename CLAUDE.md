@@ -53,4 +53,17 @@
 - аварийный доступ: `studio users reset-admin [--username NAME]`
 - образ: `docker build -t pgbench-studio-backend backend`
 
-Фронтенд (из `frontend/`) и `docker compose` — дописываются по мере этапа 0 (см. `docs/PLAN.md`, «Статус»).
+Фронтенд (из `frontend/`):
+
+- установка: `pnpm install`
+- dev-сервер: `pnpm dev` (http://localhost:5173, проксирует `/api` на бэкенд `127.0.0.1:8000`, адрес меняется через `PGB_STUDIO_BACKEND`)
+- проверки: `pnpm lint && pnpm typecheck && pnpm test`
+- типы API из OpenAPI бэкенда: `pnpm gen:api` (обновляет `openapi.json` и `src/types/api.ts`, руками не править)
+- сборка: `pnpm build`
+
+Docker compose (из корня):
+
+- первый запуск: `cp config.example.yaml config.yaml && cp .env.example .env`, в `.env` задать `PGB_STUDIO_SECRET_KEY` (`studio gen-key`) и пароль первого админа; для локального HTTP в `config.yaml` — `server.dev_mode: true`, `auth.cookie_secure: false`
+- запуск: `docker compose up -d --build`, состояние: `docker compose ps` (все `healthy`), приложение — http://localhost:8080
+- тестовые базы внутри сети compose: `pg13:5432` и `pg18:5432`, пользователь и база `bench`, пароль `PGB_TEST_DB_PASSWORD` (по умолчанию `bench`)
+- аварийный доступ: `docker compose exec backend studio users reset-admin`

@@ -22,11 +22,18 @@
   --color-warning-bg: #FFF1E8;
   --color-warning-border: #FFC7A6;
   --color-disabled: #C9D3EE;
+  /* жёлтый индикатор «есть предупреждения» (в макетах не показан) */
+  --color-yellow: #F5B400;
 
   /* консоль логов и превью команды */
   --color-code-bg: #0F1E4D;
   --color-code-text: #E6ECFF;
   --color-code-muted: #9FB3E8;
+
+  /* левая панель экрана входа (по макету) */
+  --color-hero-bg: #1B3F9E;
+  --color-hero-text: #FFFFFF;
+  --color-hero-muted: #C9D6FF;
 
   /* графики */
   --chart-tps: var(--color-primary);
@@ -66,4 +73,7 @@
   --color-disabled: #262C44;
 
   --color-code-bg: #080B18;
+
+  --color-hero-bg: #13214F;
+  --color-hero-muted: #B8C4EA;
 }

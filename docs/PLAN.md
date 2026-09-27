@@ -12,33 +12,26 @@
 
 ## Статус (обновлено 2026-09-27)
 
-Этап 0 в работе.
+Этап 0 реализован, ждёт проверки CI на GitHub и согласования балансировщика (см. ниже).
 
-Готово — бэкенд (`backend/`):
+Бэкенд (`backend/`): конфиг с понятной ошибкой старта, SQLite + Alembic, вход с блокировкой по логину и реальному IP, роли, обязательная смена временного пароля, управление пользователями, отказ изменяющих запросов не по HTTPS, `/healthz`, `/readyz`, `/api/system/health`, `/api/system/info`, CLI `studio`, образ с pgbench 18. 120 тестов, покрытие `app/api` 98.9 %, `app/core` 100 %, прочее 99.4 %.
 
-- конфиг (`config.yaml` + env `PGB_STUDIO_*`, понятная ошибка и код выхода 2), JSON-логи;
-- SQLite + Alembic (`users`, `sessions`), миграции применяются при старте;
-- вход/выход/`me`/смена пароля, блокировка по логину и по реальному IP, обязательная смена временного пароля;
-- управление пользователями для `admin` (создание с временным паролем, роль, блокировка, сброс пароля, защита последнего `admin`);
-- отказ изменяющих запросов не по HTTPS вне dev-режима, uvicorn с `--proxy-headers` и `FORWARDED_ALLOW_IPS`;
-- `/healthz`, `/readyz` (кеш 5 с), `/api/system/health`, `/api/system/info`;
-- CLI `studio serve | gen-key | openapi | users reset-admin`;
-- 120 unit-тестов, покрытие ~99 % (`app/api`, `app/core`, прочее), ruff и mypy --strict чистые;
-- `backend/Dockerfile`: образ собирается, pgbench 18.6, контейнер проходит healthcheck.
+Фронтенд (`frontend/`): оболочка с меню, индикатором состояния (список проверок по клику), меню пользователя и переключателем темы; экраны входа (по макету, с числом оставшихся попыток), смены пароля, «Пользователи» для `admin`, пустые экраны остальных разделов; guard-ы входа, роли и временного пароля; типы API из OpenAPI. ESLint, vue-tsc чистые, Vitest — 58 тестов.
 
-Начато — фронтенд (`frontend/`): `package.json` с зависимостями, конфиги Vite / TS / ESLint, `tokens.css`. TypeScript закреплён на 6.0.x: vue-tsc 3.3 не работает с TypeScript 7.
+Инфраструктура: `frontend/Dockerfile` + nginx (прокси `/api` и WS, `/healthz` через бэкенд, доверие `X-Forwarded-*` только от `TRUSTED_PROXIES`), `docker-compose.yml` (backend, frontend, pg13, pg18 — все `healthy`), CI в `.github/workflows/ci.yml`.
 
-Осталось в этапе 0, по порядку:
+Критерии этапа 0:
 
-1. Фронтенд: `main.ts`, `App.vue`, `base.css`, шрифты; `api/http.ts`, `api/auth.ts`, `api/users.ts`, `api/system.ts`; генерация `src/types/api.ts` (`pnpm gen:api`).
-2. Сторы `auth` (`can()`), `system`; роутер и guard-ы (вход, роль, обязательная смена пароля).
-3. Оболочка: `AppSidebar` (меню, индикатор состояния со списком проверок, переключатель темы, меню пользователя), `PageHeader`.
-4. Экраны: `LoginView` (по макету, с ошибкой и числом оставшихся попыток), `ChangePasswordView`, `UsersView`, пустые экраны Подключение / Нагрузка / Выполнение / Отчёт / История / Сравнение.
-5. Vitest: `can()`, guard-ы, http-обёртка (401/403), тема, форма входа; ESLint и vue-tsc чистые.
-6. `frontend/Dockerfile`, `frontend/nginx.conf` (прокси `/api` и WS, `/healthz`, `set_real_ip_from` для `trusted_proxies`, `X-Forwarded-Proto` только от балансировщика, таймаут WS ≥ `max_duration_s`).
-7. `docker-compose.yml`: `backend`, `frontend` (8080, после healthy `backend`, фиксированный IP для `FORWARDED_ALLOW_IPS`), `pg13`, `pg18`; тома `./data`, `./config.yaml:ro`; `.env`.
-8. `.github/workflows/ci.yml`: ruff, mypy, pytest + `check_coverage.py`, ESLint, vue-tsc, Vitest, актуальность `api.ts`, сборка образов.
-9. Проверка всех критериев этапа 0 (`docker compose ps` — healthy, браузер в обеих темах), дописать «Команды» в CLAUDE.md, PR `stage-0` → `main`.
+| Критерий | Результат |
+| --- | --- |
+| `docker compose up` поднимает агент и PG 13/18 | да, `docker compose ps` — 4 × `healthy` |
+| healthcheck, `/healthz`, `/readyz`, индикатор в меню | да, через `localhost:8080`; индикатор и список проверок в браузере |
+| вход `editor`/`viewer`, матрица прав, `403` для `viewer` | unit-тесты матрицы по всем эндпоинтам; через nginx `viewer` получает `403` на `POST /api/users` |
+| админ управляет пользователями, временный пароль, последний `admin` | unit-тесты + проверено в интерфейсе и через nginx |
+| балансировщик | эмуляция на compose с `dev_mode: false`: вход только с `X-Forwarded-Proto: https` от доверенного адреса, cookie `Secure; HttpOnly; SameSite=strict`, реальный IP клиента в логах и в блокировке; подделанные заголовки от недоверенного адреса → `403 https_required`. Таймаут WS в nginx — `max_duration_s + 60 с`. **Не проверено**: реальный балансировщик и WebSocket на тесте 1 ч — WS появится на этапе 3, балансировщик на стороне инфраструктуры |
+| `localhost:8080`: меню, пустые экраны, тема | да, обе темы |
+| ошибка в `config.yaml` останавливает старт | да: контейнер `backend` не стартует, в логе `server.port: … (значение: 'abc')`, код выхода 2 |
+| CI: ruff, mypy, pytest + пороги, ESLint, vue-tsc, Vitest | workflow добавлен; результат — в PR `stage-0` |
 
 Замечания к документу, которые надо подтвердить:
 

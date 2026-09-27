@@ -1,0 +1,82 @@
+# pgbench studio: agent (frontend + backend) and test databases PostgreSQL 13 and 18.
+# Before the first start: cp config.example.yaml config.yaml && cp .env.example .env
+name: pgbench-studio
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  backend:
+    <<: *restart
+    build:
+      context: backend
+      args:
+        PG_MAJOR: "18"
+    image: pgbench-studio-backend:${APP_VERSION:-dev}
+    environment:
+      PGB_STUDIO_SECRET_KEY: ${PGB_STUDIO_SECRET_KEY:?set PGB_STUDIO_SECRET_KEY in .env}
+      PGB_STUDIO_ADMIN_USER: ${PGB_STUDIO_ADMIN_USER:-}
+      PGB_STUDIO_ADMIN_PASSWORD: ${PGB_STUDIO_ADMIN_PASSWORD:-}
+      # uvicorn trusts X-Forwarded-* only from the frontend container.
+      FORWARDED_ALLOW_IPS: 172.28.0.10
+    volumes:
+      - ./data:/data
+      - ./config.yaml:/etc/pgbench-studio/config.yaml:ro
+    networks:
+      studio:
+        ipv4_address: 172.28.0.20
+    # No published ports: reachable only through the frontend.
+
+  frontend:
+    <<: *restart
+    build: frontend
+    image: pgbench-studio-frontend:${APP_VERSION:-dev}
+    environment:
+      # Must match server.trusted_proxies in config.yaml.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # limits.max_duration_s + 60 s
+      PROXY_READ_TIMEOUT_S: ${PROXY_READ_TIMEOUT_S:-14460}
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      studio:
+        ipv4_address: 172.28.0.10
+
+  pg13:
+    <<: *restart
+    image: postgres:13
+    environment: &pg-env
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: ${PGB_TEST_DB_PASSWORD:-bench}
+      POSTGRES_DB: bench
+    healthcheck: &pg-health
+      test: ["CMD-SHELL", "pg_isready -U bench -d bench"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pg13-data:/var/lib/postgresql/data
+    networks: [studio]
+
+  pg18:
+    <<: *restart
+    image: postgres:18
+    environment: *pg-env
+    healthcheck: *pg-health
+    volumes:
+      # PostgreSQL 18 images keep data under a versioned subdirectory of /var/lib/postgresql.
+      - pg18-data:/var/lib/postgresql
+    networks: [studio]
+
+networks:
+  studio:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  pg13-data:
+  pg18-data:

@@ -1,0 +1,77 @@
+# pgbench studio: SPA + reverse proxy to the backend.
+# ${VAR} placeholders are filled by the nginx image entrypoint (envsubst) at start.
+
+# Trusted load balancers: generated from TRUSTED_PROXIES by 40-trusted-proxies.sh.
+include /etc/nginx/trusted/realip.conf;
+real_ip_header X-Forwarded-For;
+real_ip_recursive on;
+
+# 1 when the TCP peer is a trusted balancer.
+geo $realip_remote_addr $from_balancer {
+    default 0;
+    include /etc/nginx/trusted/geo.conf;
+}
+
+# Scheme and host are taken from the balancer only; a direct request is plain http,
+# so the backend rejects state-changing calls from it.
+map $from_balancer $forwarded_proto {
+    1       $http_x_forwarded_proto;
+    default $scheme;
+}
+
+map $from_balancer $forwarded_host {
+    1       $http_x_forwarded_host;
+    default $host;
+}
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+    client_max_body_size 2m;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+
+    # Liveness of this container includes the backend behind it.
+    location = /healthz {
+        proxy_pass http://backend:8000/healthz;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        access_log off;
+    }
+
+    location = /readyz {
+        proxy_pass http://backend:8000/readyz;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        access_log off;
+    }
+
+    location /api/ {
+        proxy_pass http://backend:8000;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        # WebSocket of a run stays open for the whole test (limits.max_duration_s).
+        proxy_read_timeout ${PROXY_READ_TIMEOUT_S}s;
+        proxy_send_timeout ${PROXY_READ_TIMEOUT_S}s;
+        proxy_buffering off;
+    }
+
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+}
