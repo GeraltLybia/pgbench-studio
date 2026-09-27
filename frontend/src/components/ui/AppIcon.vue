@@ -21,6 +21,11 @@ const PATHS = {
   refresh: 'M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6',
   database: 'M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6',
   chevron: 'M9 6l6 6-6 6',
+  play: 'M7 4l13 8-13 8z',
+  grip: 'M9 5h0M9 12h0M9 19h0M15 5h0M15 12h0M15 19h0',
+  file: 'M14 3H6v18h12V7zM14 3v4h4',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  stop: 'M6 6h12v12H6z',
 } as const
 
 export type IconName = keyof typeof PATHS
