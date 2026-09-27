@@ -30,3 +30,39 @@ export function plural(n: number, forms: [string, string, string]): string {
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1]
   return forms[2]
 }
+
+const integer = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
+const decimal = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 })
+
+/** 10000000 -> «10 000 000» */
+export function formatInt(value: number | null | undefined): string {
+  return value == null ? '—' : integer.format(value)
+}
+
+const UNITS = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ']
+
+/** 1610612736 -> «1,5 ГБ» */
+export function formatBytes(bytes: number): string {
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < UNITS.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${decimal.format(value)} ${UNITS[unit]}`
+}
+
+export function formatMs(ms: number): string {
+  return `${decimal.format(ms)} мс`
+}
+
+export function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  const m = Math.floor(s / 60)
+  return m > 0 ? `${m} мин ${s % 60} с` : `${s} с`
+}
+
+export function isToday(value: string | Date): boolean {
+  const date = typeof value === 'string' ? new Date(value) : value
+  return date.toDateString() === new Date().toDateString()
+}

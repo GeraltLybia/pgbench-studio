@@ -18,6 +18,9 @@ const PATHS = {
   check: 'M20 6 9 17l-5-5',
   plus: 'M12 5v14M5 12h14',
   lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
+  refresh: 'M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6',
+  database: 'M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6',
+  chevron: 'M9 6l6 6-6 6',
 } as const
 
 export type IconName = keyof typeof PATHS

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { authApi, type Me } from '@/api/auth'
 import { ApiError } from '@/api/http'
 import { can as canRole, type Action } from '@/auth/permissions'
+import { useProfilesStore } from './profiles'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<Me | null>(null)
@@ -45,6 +46,8 @@ export const useAuthStore = defineStore('auth', () => {
   function clear(): void {
     user.value = null
     loaded.value = true
+    // The next user checks the connection again under their own role.
+    useProfilesStore().reset()
   }
 
   function can(action: Action): boolean {

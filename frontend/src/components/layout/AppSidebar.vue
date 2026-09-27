@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import AppIcon, { type IconName } from '@/components/ui/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useProfilesStore } from '@/stores/profiles'
+import ConnectionCard from './ConnectionCard.vue'
 import SystemStatus from './SystemStatus.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import UserMenu from './UserMenu.vue'
@@ -16,13 +18,29 @@ interface NavItem {
 }
 
 const auth = useAuthStore()
+const profiles = useProfilesStore()
 
-const steps: NavItem[] = [
+const NO_CHECK = 'Сначала успешно проверьте соединение'
+
+// Load, Run and Report open only after a successful connection check (router guard too).
+const steps = computed<NavItem[]>(() => [
   { label: 'Подключение', icon: 'plug', to: '/connect', step: 1 },
-  { label: 'Нагрузка', icon: 'sliders', to: '/load', step: 2 },
-  { label: 'Выполнение', icon: 'activity', step: 3, hint: 'Нет активного запуска' },
-  { label: 'Отчёт', icon: 'chart', step: 4, hint: 'Нет завершённых запусков' },
-]
+  profiles.connected
+    ? { label: 'Нагрузка', icon: 'sliders', to: '/load', step: 2 }
+    : { label: 'Нагрузка', icon: 'sliders', step: 2, hint: NO_CHECK },
+  {
+    label: 'Выполнение',
+    icon: 'activity',
+    step: 3,
+    hint: profiles.connected ? 'Нет активного запуска' : NO_CHECK,
+  },
+  {
+    label: 'Отчёт',
+    icon: 'chart',
+    step: 4,
+    hint: profiles.connected ? 'Нет завершённых запусков' : NO_CHECK,
+  },
+])
 
 const secondary = computed<NavItem[]>(() => [
   { label: 'История запусков', icon: 'clock', to: '/history' },
@@ -63,6 +81,7 @@ const secondary = computed<NavItem[]>(() => [
     </nav>
 
     <div class="bottom">
+      <ConnectionCard />
       <SystemStatus />
       <UserMenu />
       <ThemeToggle />
