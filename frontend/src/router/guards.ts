@@ -1,5 +1,5 @@
 import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
-import { roleAllows, type Role } from '@/auth/permissions'
+import { can, roleAllows, type Role } from '@/auth/permissions'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -10,6 +10,12 @@ declare module 'vue-router' {
     /** Full-screen page without the sidebar. */
     bare?: boolean
     title?: string
+    /**
+     * Needs a successful connection check with the current parameters.
+     * 'all' — for every role; 'testers' — only for roles that can run the check
+     * (viewers still watch runs and reports without it).
+     */
+    requiresConnection?: 'all' | 'testers'
   }
 }
 
@@ -18,6 +24,8 @@ export interface SessionState {
   role: Role | null
   mustChangePassword: boolean
   ensureLoaded: () => Promise<void>
+  /** Loads profiles, auto-checks the remembered one once, reports a passed check. */
+  connectionReady: () => Promise<boolean>
 }
 
 export const HOME = '/connect'
@@ -49,6 +57,10 @@ export async function resolveNavigation(
   }
   if (to.meta.role && !roleAllows(session.role!, to.meta.role)) {
     return HOME
+  }
+  const rule = to.meta.requiresConnection
+  if (rule && (rule === 'all' || can(session.role, 'connection.test'))) {
+    if (!(await session.connectionReady())) return HOME
   }
   return true
 }

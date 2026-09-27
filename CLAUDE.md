@@ -48,6 +48,7 @@
 - установка: `uv sync`
 - проверки: `uv run ruff check . && uv run ruff format --check . && uv run mypy app`
 - тесты с порогами покрытия: `uv run pytest --cov=app --cov-report=json && uv run python scripts/check_coverage.py`
+- интеграционные тесты (Docker + pgbench 18, PostgreSQL 13 и 18 в Testcontainers): `uv run pytest -m integration`; путь к pgbench 18 — `PGBENCH_BINARY` (на macOS: `brew install postgresql@18`, бинарник `/opt/homebrew/opt/postgresql@18/bin/pgbench`)
 - запуск локально: `PGB_STUDIO_SECRET_KEY=$(uv run studio gen-key) uv run studio --config <config.yaml> serve` (для локального HTTP нужен `server.dev_mode: true`)
 - ключ шифрования: `uv run studio gen-key`; схема OpenAPI: `uv run studio openapi -o ../frontend/openapi.json`
 - аварийный доступ: `studio users reset-admin [--username NAME]`

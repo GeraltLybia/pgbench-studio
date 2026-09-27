@@ -192,10 +192,196 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Profiles */
+        get: operations["list_profiles_api_profiles_get"];
+        put?: never;
+        /** Create Profile */
+        post: operations["create_profile_api_profiles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Profile */
+        put: operations["update_profile_api_profiles__profile_id__put"];
+        post?: never;
+        /** Delete Profile */
+        delete: operations["delete_profile_api_profiles__profile_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Connection */
+        post: operations["test_connection_api_profiles_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/profiles/{profile_id}/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Init Profile */
+        post: operations["init_profile_api_profiles__profile_id__init_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ConnectionTestFail */
+        ConnectionTestFail: {
+            /**
+             * Ok
+             * @default false
+             * @constant
+             */
+            ok: false;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "host_unreachable" | "timeout" | "connection_refused" | "auth_failed" | "database_not_found" | "no_connect_privilege" | "ssl_error" | "unknown";
+            /** Message */
+            message: string;
+            /** Hint */
+            hint: string;
+            /** Raw */
+            raw: string;
+        };
+        /** ConnectionTestOk */
+        ConnectionTestOk: {
+            /**
+             * Ok
+             * @default true
+             * @constant
+             */
+            ok: true;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Server Version */
+            server_version: string;
+            /** Server Version Num */
+            server_version_num: number;
+            /** Server Major */
+            server_major: number;
+            /** Pgbench Version */
+            pgbench_version: string | null;
+            /** Warnings */
+            warnings: string[];
+            /** Response Ms */
+            response_ms: number;
+            /** Max Connections */
+            max_connections: number;
+            /** Reserved Connections */
+            reserved_connections: number;
+            /** Used Connections */
+            used_connections: number;
+            /** Free Connections */
+            free_connections: number;
+            /** Pgbench Tables */
+            pgbench_tables: boolean;
+            /** Scale */
+            scale: number | null;
+            /** Accounts Rows */
+            accounts_rows: number | null;
+        };
+        /** ConnectionTestRequest */
+        ConnectionTestRequest: {
+            /** Host */
+            host: string;
+            /**
+             * Port
+             * @default 5432
+             */
+            port: number;
+            /** Dbname */
+            dbname: string;
+            /** User */
+            user: string;
+            /**
+             * Sslmode
+             * @default prefer
+             * @enum {string}
+             */
+            sslmode: "disable" | "prefer" | "require" | "verify-full";
+            /**
+             * App Name
+             * @default pgbench-studio
+             */
+            app_name: string;
+            /**
+             * Connect Timeout S
+             * @default 10
+             */
+            connect_timeout_s: number;
+            /** Profile Id */
+            profile_id?: number | null;
+            /** Password */
+            password?: string | null;
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /** Code */
@@ -232,6 +418,48 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** InitProgressOut */
+        InitProgressOut: {
+            /** Done */
+            done: number | null;
+            /** Total */
+            total: number | null;
+            /** Pct */
+            pct: number | null;
+            /** Elapsed S */
+            elapsed_s: number | null;
+            /** Remaining S */
+            remaining_s: number | null;
+            /** Phase */
+            phase: string | null;
+        };
+        /** InitRequest */
+        InitRequest: {
+            /** Scale */
+            scale: number;
+            /**
+             * Fillfactor
+             * @default 100
+             */
+            fillfactor: number;
+            /**
+             * Foreign Keys
+             * @default true
+             */
+            foreign_keys: boolean;
+            /**
+             * Unlogged
+             * @default false
+             */
+            unlogged: boolean;
+            /** Confirm Dbname */
+            confirm_dbname: string;
+            /**
+             * Confirm Large
+             * @default false
+             */
+            confirm_large: boolean;
+        };
         /** LimitsOut */
         LimitsOut: {
             /** Connections Reserve */
@@ -252,6 +480,16 @@ export interface components {
              * @constant
              */
             status: "ok";
+        };
+        /** LogLineOut */
+        LogLineOut: {
+            /**
+             * Stream
+             * @enum {string}
+             */
+            stream: "stdout" | "stderr";
+            /** Line */
+            line: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -277,6 +515,115 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** ProfileCreate */
+        ProfileCreate: {
+            /** Host */
+            host: string;
+            /**
+             * Port
+             * @default 5432
+             */
+            port: number;
+            /** Dbname */
+            dbname: string;
+            /** User */
+            user: string;
+            /**
+             * Sslmode
+             * @default prefer
+             * @enum {string}
+             */
+            sslmode: "disable" | "prefer" | "require" | "verify-full";
+            /**
+             * App Name
+             * @default pgbench-studio
+             */
+            app_name: string;
+            /**
+             * Connect Timeout S
+             * @default 10
+             */
+            connect_timeout_s: number;
+            /** Name */
+            name: string;
+            /** Password */
+            password?: string | null;
+        };
+        /** ProfileOut */
+        ProfileOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Host */
+            host: string;
+            /** Port */
+            port: number;
+            /** Dbname */
+            dbname: string;
+            /** User */
+            user: string;
+            /**
+             * Sslmode
+             * @enum {string}
+             */
+            sslmode: "disable" | "prefer" | "require" | "verify-full";
+            /** App Name */
+            app_name: string;
+            /** Connect Timeout S */
+            connect_timeout_s: number;
+            /** Has Password */
+            has_password: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProfileUpdate */
+        ProfileUpdate: {
+            /** Host */
+            host: string;
+            /**
+             * Port
+             * @default 5432
+             */
+            port: number;
+            /** Dbname */
+            dbname: string;
+            /** User */
+            user: string;
+            /**
+             * Sslmode
+             * @default prefer
+             * @enum {string}
+             */
+            sslmode: "disable" | "prefer" | "require" | "verify-full";
+            /**
+             * App Name
+             * @default pgbench-studio
+             */
+            app_name: string;
+            /**
+             * Connect Timeout S
+             * @default 10
+             */
+            connect_timeout_s: number;
+            /** Name */
+            name: string;
+            /** Password */
+            password?: string | null;
+            /**
+             * Clear Password
+             * @default false
+             */
+            clear_password: boolean;
+        };
         /** Readiness */
         Readiness: {
             /**
@@ -294,6 +641,56 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "editor" | "admin";
+        /** RunOut */
+        RunOut: {
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "init" | "bench";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "finalizing" | "completed" | "failed" | "cancelled";
+            /** Profile Id */
+            profile_id: number | null;
+            /** Started By */
+            started_by: string | null;
+            /** Stopped By */
+            stopped_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Pgbench Version */
+            pgbench_version: string | null;
+            /** Server Version */
+            server_version: string | null;
+            /** Error */
+            error: string | null;
+            /** Argv */
+            argv: string[];
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            progress: components["schemas"]["InitProgressOut"] | null;
+            /** Log Tail */
+            log_tail: components["schemas"]["LogLineOut"][];
+        };
+        /** RunStarted */
+        RunStarted: {
+            /** Run Id */
+            run_id: number;
+        };
         /** SystemHealth */
         SystemHealth: {
             /**
@@ -912,6 +1309,429 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemInfo"];
+                };
+            };
+        };
+    };
+    list_profiles_api_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_profile_api_profiles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_profile_api_profiles__profile_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_profile_api_profiles__profile_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_connection_api_profiles_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestOk"] | components["schemas"]["ConnectionTestFail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    init_profile_api_profiles__profile_id__init_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_run_api_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
