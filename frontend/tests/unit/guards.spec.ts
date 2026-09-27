@@ -12,8 +12,19 @@ function route(
   return { name, meta, fullPath, query } as unknown as RouteLocationNormalized
 }
 
-function session(role: Role | null, mustChangePassword = false, loaded = true): SessionState {
-  return { loaded, role, mustChangePassword, ensureLoaded: vi.fn(() => Promise.resolve()) }
+function session(
+  role: Role | null,
+  mustChangePassword = false,
+  loaded = true,
+  connected = false,
+): SessionState {
+  return {
+    loaded,
+    role,
+    mustChangePassword,
+    ensureLoaded: vi.fn(() => Promise.resolve()),
+    connectionReady: vi.fn(() => Promise.resolve(connected)),
+  }
 }
 
 describe('resolveNavigation', () => {
@@ -52,6 +63,31 @@ describe('resolveNavigation', () => {
     expect(await resolveNavigation(users, session('viewer'))).toBe(HOME)
     expect(await resolveNavigation(users, session('editor'))).toBe(HOME)
     expect(await resolveNavigation(users, session('admin'))).toBe(true)
+  })
+})
+
+describe('connection requirement', () => {
+  const load = route('load', { requiresConnection: 'all' })
+  const run = route('run', { requiresConnection: 'testers' }, '/runs/1')
+
+  it('keeps everyone on /connect until the check passes', async () => {
+    expect(await resolveNavigation(load, session('editor'))).toBe(HOME)
+    expect(await resolveNavigation(load, session('viewer'))).toBe(HOME)
+    expect(await resolveNavigation(load, session('editor', false, true, true))).toBe(true)
+  })
+
+  it('lets viewers watch runs without a check they cannot perform', async () => {
+    const viewer = session('viewer')
+    expect(await resolveNavigation(run, viewer)).toBe(true)
+    expect(viewer.connectionReady).not.toHaveBeenCalled()
+    expect(await resolveNavigation(run, session('editor'))).toBe(HOME)
+    expect(await resolveNavigation(run, session('admin', false, true, true))).toBe(true)
+  })
+
+  it('keeps history open without a check', async () => {
+    const s = session('editor')
+    expect(await resolveNavigation(route('history'), s)).toBe(true)
+    expect(s.connectionReady).not.toHaveBeenCalled()
   })
 })
 
