@@ -1,0 +1,41 @@
+# pgbench studio — пример config.yaml. Скопируйте в config.yaml и поправьте под стенд.
+# Любое поле переопределяется переменной PGB_STUDIO_<СЕКЦИЯ>__<ПОЛЕ>, например PGB_STUDIO_SERVER__PORT.
+server:
+  host: 0.0.0.0
+  port: 8000
+  trusted_proxies: [10.0.0.0/24]        # адреса балансировщика: только им верим X-Forwarded-*
+  dev_mode: false                       # true — разрешает HTTP и cookie без Secure на localhost
+  secret_key_env: PGB_STUDIO_SECRET_KEY # ключ шифрования паролей профилей, обязателен
+
+auth:
+  session_ttl_h: 12
+  cookie_secure: true
+  max_failed_logins: 5
+  lockout_min: 5
+  admin_user_env: PGB_STUDIO_ADMIN_USER
+  admin_password_env: PGB_STUDIO_ADMIN_PASSWORD
+
+storage:
+  sqlite_path: /data/studio.db
+  runs_dir: /data/runs
+  keep_runs_days: 90
+
+pgbench:
+  binary: pgbench
+  max_parallel_runs: 1
+  default_progress_interval_s: 1
+
+agent:
+  name: load-agent-01
+  sample_interval_s: 1
+  cpu_warning_percent: 85
+
+limits:
+  connections_reserve: 5
+  max_duration_s: 14400
+  max_transactions: 100000000
+  max_scale: 5000
+  min_free_disk_gb: 5
+
+logging:
+  level: INFO

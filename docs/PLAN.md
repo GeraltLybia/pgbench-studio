@@ -10,6 +10,44 @@
 - «Изменяющие запросы доступны только роли `editor`» читается как «`editor` и выше»: `admin` может всё, что `editor`.
 - Макеты лежат в `docs/design/*.pdf` (перенесены из `design/`), документ архитектуры — `docs/architecture.md`.
 
+## Статус (обновлено 2026-09-27)
+
+Этап 0 в работе.
+
+Готово — бэкенд (`backend/`):
+
+- конфиг (`config.yaml` + env `PGB_STUDIO_*`, понятная ошибка и код выхода 2), JSON-логи;
+- SQLite + Alembic (`users`, `sessions`), миграции применяются при старте;
+- вход/выход/`me`/смена пароля, блокировка по логину и по реальному IP, обязательная смена временного пароля;
+- управление пользователями для `admin` (создание с временным паролем, роль, блокировка, сброс пароля, защита последнего `admin`);
+- отказ изменяющих запросов не по HTTPS вне dev-режима, uvicorn с `--proxy-headers` и `FORWARDED_ALLOW_IPS`;
+- `/healthz`, `/readyz` (кеш 5 с), `/api/system/health`, `/api/system/info`;
+- CLI `studio serve | gen-key | openapi | users reset-admin`;
+- 120 unit-тестов, покрытие ~99 % (`app/api`, `app/core`, прочее), ruff и mypy --strict чистые;
+- `backend/Dockerfile`: образ собирается, pgbench 18.6, контейнер проходит healthcheck.
+
+Начато — фронтенд (`frontend/`): `package.json` с зависимостями, конфиги Vite / TS / ESLint, `tokens.css`. TypeScript закреплён на 6.0.x: vue-tsc 3.3 не работает с TypeScript 7.
+
+Осталось в этапе 0, по порядку:
+
+1. Фронтенд: `main.ts`, `App.vue`, `base.css`, шрифты; `api/http.ts`, `api/auth.ts`, `api/users.ts`, `api/system.ts`; генерация `src/types/api.ts` (`pnpm gen:api`).
+2. Сторы `auth` (`can()`), `system`; роутер и guard-ы (вход, роль, обязательная смена пароля).
+3. Оболочка: `AppSidebar` (меню, индикатор состояния со списком проверок, переключатель темы, меню пользователя), `PageHeader`.
+4. Экраны: `LoginView` (по макету, с ошибкой и числом оставшихся попыток), `ChangePasswordView`, `UsersView`, пустые экраны Подключение / Нагрузка / Выполнение / Отчёт / История / Сравнение.
+5. Vitest: `can()`, guard-ы, http-обёртка (401/403), тема, форма входа; ESLint и vue-tsc чистые.
+6. `frontend/Dockerfile`, `frontend/nginx.conf` (прокси `/api` и WS, `/healthz`, `set_real_ip_from` для `trusted_proxies`, `X-Forwarded-Proto` только от балансировщика, таймаут WS ≥ `max_duration_s`).
+7. `docker-compose.yml`: `backend`, `frontend` (8080, после healthy `backend`, фиксированный IP для `FORWARDED_ALLOW_IPS`), `pg13`, `pg18`; тома `./data`, `./config.yaml:ro`; `.env`.
+8. `.github/workflows/ci.yml`: ruff, mypy, pytest + `check_coverage.py`, ESLint, vue-tsc, Vitest, актуальность `api.ts`, сборка образов.
+9. Проверка всех критериев этапа 0 (`docker compose ps` — healthy, браузер в обеих темах), дописать «Команды» в CLAUDE.md, PR `stage-0` → `main`.
+
+Замечания к документу, которые надо подтвердить:
+
+- В Debian/PGDG pgbench входит не в `postgresql-client-18`, а в серверный пакет `postgresql-18`. В образе ставится клиент, а из серверного пакета извлекается только бинарник pgbench, сам сервер не устанавливается.
+- Этап 1 говорит «пароль не хранится, если ключа нет», а разделы «Модель данных» и «Роли» — «без ключа бэкенд не стартует». Сейчас сделано второе: без ключа старт запрещён.
+- `/readyz` дополнительно отдаёт `pgbench_version`, чтобы на экране входа была подпись «pgbench 18» (как в макете) без сессии.
+- Минимальная длина нового пароля — 8 символов; админ создаёт пользователя, пароль генерируется сервером и показывается один раз.
+- Проверку «Зависшие запуски» добавим в этапе 3 вместе с таблицей `runs`.
+
 ## Этап 0. Каркас
 
 Бэкенд (`backend/`, uv):
