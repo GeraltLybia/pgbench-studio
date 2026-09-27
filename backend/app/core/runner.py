@@ -1,6 +1,7 @@
 """RunManager: starts pgbench as a child process and tracks its lifecycle.
 
-Stage 1 covers `pgbench -i` (kind=init); benchmark runs are added in stage 3.
+`pgbench -i` (kind=init) and benchmark runs (kind=bench). Live monitoring of benchmarks
+(WebSocket, progress series, cancel) arrives in stage 3.
 """
 
 from __future__ import annotations
@@ -11,6 +12,9 @@ import json
 import logging
 import os
 import re
+import shutil
+import tempfile
+import time
 from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -70,6 +74,68 @@ def public_params(params: ConnParams) -> dict[str, object]:
     return data
 
 
+def write_files(directory: Path, files: dict[str, str]) -> None:
+    """Script files; names come from command.script_file_names, never from user input."""
+    for name, body in files.items():
+        path = directory / name
+        if path.parent != directory:  # pragma: no cover - defence against path tricks
+            raise ValueError(f"unsafe script file name: {name}")
+        path.write_text(body if body.endswith("\n") else body + "\n", encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class DryRun:
+    exit_code: int | None
+    stdout: str
+    stderr: str
+    duration_ms: float
+    timed_out: bool
+
+
+async def run_dry(
+    argv: list[str],
+    files: dict[str, str],
+    params: ConnParams,
+    work_root: Path,
+    timeout_s: float = 60,
+) -> DryRun:
+    """`pgbench -c 1 -t 1 -n` in a scratch directory, removed afterwards; no run record."""
+    await asyncio.to_thread(work_root.mkdir, parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix="dry-", dir=work_root))
+    started = time.perf_counter()
+    try:
+        write_files(work, files)
+        process = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=work,
+            env=child_env(params, work),
+        )
+        try:
+            out, err = await asyncio.wait_for(process.communicate(), timeout_s)
+        except TimeoutError:
+            process.kill()
+            out, err = await process.communicate()
+            return DryRun(
+                None,
+                out.decode(errors="replace"),
+                err.decode(errors="replace"),
+                (time.perf_counter() - started) * 1000,
+                True,
+            )
+        return DryRun(
+            process.returncode,
+            out.decode(errors="replace"),
+            err.decode(errors="replace"),
+            (time.perf_counter() - started) * 1000,
+            False,
+        )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 class RunManager:
     def __init__(
         self,
@@ -117,30 +183,93 @@ class RunManager:
         pgbench_version: str | None,
         server_version: str | None,
     ) -> int:
+        argv = build_init_argv(self._binary, options)
+        config: dict[str, object] = {
+            "kind": "init",
+            "connection": public_params(params),
+            "init": asdict(options),
+        }
+        return await self._start(
+            kind=RunKind.init,
+            profile_id=profile_id,
+            params=params,
+            argv=argv,
+            files={},
+            config=config,
+            confirmed_rules=None,
+            started_by=started_by,
+            pgbench_version=pgbench_version,
+            server_version=server_version,
+        )
+
+    async def start_bench(
+        self,
+        *,
+        profile_id: int,
+        params: ConnParams,
+        argv: list[str],
+        files: dict[str, str],
+        config: dict[str, object],
+        confirmed_rules: list[str],
+        started_by: str,
+        pgbench_version: str | None,
+        server_version: str | None,
+    ) -> int:
+        return await self._start(
+            kind=RunKind.bench,
+            profile_id=profile_id,
+            params=params,
+            argv=argv,
+            files=files,
+            config=config,
+            confirmed_rules=confirmed_rules,
+            started_by=started_by,
+            pgbench_version=pgbench_version,
+            server_version=server_version,
+        )
+
+    async def _start(
+        self,
+        *,
+        kind: RunKind,
+        profile_id: int,
+        params: ConnParams,
+        argv: list[str],
+        files: dict[str, str],
+        config: dict[str, object],
+        confirmed_rules: list[str] | None,
+        started_by: str,
+        pgbench_version: str | None,
+        server_version: str | None,
+    ) -> int:
         async with self._lock:
             if len(self._active) >= self._max_parallel:
                 raise RunLimitError
-            argv = build_init_argv(self._binary, options)
-            config = {"kind": "init", "connection": public_params(params), "init": asdict(options)}
             async with self._sessionmaker() as db:
                 run = Run(
                     profile_id=profile_id,
-                    kind=RunKind.init.value,
+                    kind=kind.value,
                     status=RunStatus.queued.value,
                     started_by=started_by,
                     config_json=json.dumps(config, ensure_ascii=False),
                     argv_json=json.dumps(argv),
+                    confirmed_rules_json=(
+                        json.dumps(confirmed_rules, ensure_ascii=False)
+                        if confirmed_rules is not None
+                        else None
+                    ),
                     pgbench_version=pgbench_version,
                     server_version=server_version,
                 )
                 db.add(run)
                 await db.commit()
                 run_id = run.id
-            active = ActiveRun(run_id=run_id, kind=RunKind.init)
+            active = ActiveRun(run_id=run_id, kind=kind)
             self._active[run_id] = active
 
         run_dir = self._runs_dir / str(run_id)
         run_dir.mkdir(parents=True, exist_ok=True)
+        write_files(run_dir, files)
         try:
             # Argument list only, never a shell; the password is in env (PGPASSWORD).
             process = await asyncio.create_subprocess_exec(
@@ -158,7 +287,7 @@ class RunManager:
         active.process = process
         await self._update(run_id, status=RunStatus.running, started_at=True)
         active.task = asyncio.create_task(self._supervise(active, process, run_dir))
-        log.info("run started", extra={"run_id": run_id, "kind": "init", "user": started_by})
+        log.info("run started", extra={"run_id": run_id, "kind": kind.value, "user": started_by})
         return run_id
 
     async def _supervise(

@@ -7,9 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from app.core.command import InitOptions
+from app.config import LimitsSettings
+from app.core.command import InitOptions, build_bench_argv, build_dry_argv
 from app.core.connection import ConnFailure, ServerFacts, check_connection
-from app.core.runner import RunManager, child_env
+from app.core.plan import Plan, build_plan
+from app.core.runner import RunManager, child_env, run_dry
+from app.core.validator import validate_script
+from app.schemas import RunConfig
 from app.storage.db import create_engine_for, make_sessionmaker, run_migrations
 from app.storage.models import Profile, Run, RunStatus
 from tests.integration.conftest import Server
@@ -177,3 +181,109 @@ async def test_timeout(server: Server) -> None:
             writer.close()
         listener.close()
     assert isinstance(result, ConnFailure) and result.code == "timeout", result
+
+
+# --- stage 2: argv from the plan and dry runs against real servers ------------------------
+
+HOT = (
+    "\\set aid random(1, 100000 * :scale)\n"
+    "SELECT abalance FROM pgbench_accounts WHERE aid = :aid;\n"
+)
+
+
+def _plan(**overrides: object) -> Plan:
+    cfg: dict[str, object] = {
+        "profile_id": 1,
+        "mode": "duration",
+        "duration_s": 10,
+        "clients": 2,
+        "threads": 1,
+        "protocol": "prepared",
+        "variables": [{"name": "delta", "value": "5"}],
+        "scenarios": [
+            {"kind": "builtin", "name": "select-only", "weight": 1},
+            {"kind": "script", "name": "hot.sql", "body": HOT, "weight": 3},
+        ],
+    }
+    cfg.update(overrides)
+    return build_plan(
+        RunConfig.model_validate(cfg),
+        LimitsSettings(),
+        progress_interval_s=1,
+        free_connections=None,
+        cpu_count=8,
+        server_major=None,
+        pgbench_major=18,
+    )
+
+
+async def _init(server: Server, runs: RunManager) -> None:
+    run_id = await runs.start_init(
+        profile_id=1,
+        params=server.params(),
+        options=InitOptions(scale=1, fillfactor=100, foreign_keys=False, unlogged=False),
+        started_by="it",
+        pgbench_version="18",
+        server_version=None,
+    )
+    await asyncio.wait_for(runs.wait(run_id), 120)
+
+
+async def test_dry_run_and_bench_with_scripts(
+    server: Server, runs: RunManager, pgbench: str, tmp_path: Path
+) -> None:
+    await _init(server, runs)
+    plan = _plan()
+    assert plan.errors == []
+
+    dry = await run_dry(
+        build_dry_argv(pgbench, plan.options), plan.files, server.params(), tmp_path
+    )
+    assert dry.exit_code == 0, dry.stderr
+    assert "actually processed: 1/1" in dry.stdout
+
+    bench_plan = _plan(mode="transactions", transactions=20, duration_s=None)
+    run_id = await runs.start_bench(
+        profile_id=1,
+        params=server.params(),
+        argv=build_bench_argv(pgbench, bench_plan.options),
+        files=bench_plan.files,
+        config={},
+        confirmed_rules=[],
+        started_by="it",
+        pgbench_version="18",
+        server_version=None,
+    )
+    await asyncio.wait_for(runs.wait(run_id), 120)
+    async with runs._sessionmaker() as db:
+        run = await db.get(Run, run_id)
+        assert run is not None and run.status == RunStatus.completed, run.error if run else None
+    run_dir = runs._runs_dir / str(run_id)
+    assert (
+        "number of transactions actually processed: 40/40" in (run_dir / "stdout.log").read_text()
+    )
+    assert any(p.name.startswith("pgbench_log") for p in run_dir.iterdir())
+
+
+async def test_dry_run_catches_what_the_validator_leaves_to_the_server(
+    server: Server, pgbench: str, tmp_path: Path
+) -> None:
+    plan = _plan(
+        scenarios=[{"kind": "script", "name": "t.sql", "body": "SELECT * FROM missing_table;"}]
+    )
+    assert plan.errors == []  # syntactically fine
+    dry = await run_dry(
+        build_dry_argv(pgbench, plan.options), plan.files, server.params(), tmp_path
+    )
+    assert dry.exit_code != 0
+    assert "missing_table" in dry.stderr
+
+
+async def test_version_rule_matches_the_server(server: Server) -> None:
+    merge = (
+        "MERGE INTO pgbench_accounts a USING pgbench_branches b ON a.bid = b.bid "
+        "WHEN MATCHED THEN DO NOTHING;"
+    )
+    diagnostics = validate_script(merge, server.major).diagnostics
+    has_version_error = any(d.rule == "server_version" for d in diagnostics)
+    assert has_version_error is (server.major < 15)

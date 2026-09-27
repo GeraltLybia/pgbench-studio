@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request
 from app import __version__
 from app.api.deps import SettingsDep, ViewerDep
 from app.core.healthchecks import HealthService
+from app.core.limits import agent_cpu_count
 from app.schemas import LimitsOut, SystemInfo
 
 router = APIRouter(prefix="/api/system", tags=["system"])
@@ -21,6 +22,8 @@ async def system_info(request: Request, settings: SettingsDep, _user: ViewerDep)
         await health.results()
     return SystemInfo(
         app_version=__version__,
+        cpu_count=agent_cpu_count(),
+        default_progress_interval_s=settings.pgbench.default_progress_interval_s,
         agent_name=settings.agent.name,
         pgbench_version=health.pgbench_version,
         dev_mode=settings.server.dev_mode,
