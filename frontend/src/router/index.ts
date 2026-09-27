@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useProfilesStore } from '@/stores/profiles'
 import { HOME, resolveNavigation } from './guards'
 
 export const routes = [
@@ -32,19 +33,19 @@ export const routes = [
     path: '/load',
     name: 'load',
     component: () => import('@/views/LoadView.vue'),
-    meta: { title: 'Нагрузка' },
+    meta: { title: 'Нагрузка', requiresConnection: 'all' as const },
   },
   {
     path: '/runs/:id',
     name: 'run',
     component: () => import('@/views/RunView.vue'),
-    meta: { title: 'Выполнение' },
+    meta: { title: 'Выполнение', requiresConnection: 'testers' as const },
   },
   {
     path: '/runs/:id/report',
     name: 'report',
     component: () => import('@/views/ReportView.vue'),
-    meta: { title: 'Отчёт' },
+    meta: { title: 'Отчёт', requiresConnection: 'testers' as const },
   },
   {
     path: '/history',
@@ -76,6 +77,11 @@ export function createAppRouter(): Router {
       },
       ensureLoaded: async () => {
         await auth.fetchMe()
+      },
+      connectionReady: async () => {
+        const profiles = useProfilesStore()
+        await profiles.bootstrap(auth.can('connection.test')).catch(() => undefined)
+        return profiles.connected
       },
     })
   })

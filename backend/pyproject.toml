@@ -15,6 +15,7 @@ dependencies = [
     "argon2-cffi>=23.1",
     "cryptography>=43",
     "psutil>=6.0",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.scripts]
@@ -30,6 +31,7 @@ dev = [
     "types-PyYAML",
     "types-psutil",
     "httpx2>=2.13.1",
+    "testcontainers[postgres]>=4.8",
 ]
 
 [build-system]
@@ -49,6 +51,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
+# The fake pgbench script embeds real, long pgbench output lines.
+"tests/conftest.py" = ["S101", "S105", "S106", "E501"]
 "migrations/**" = ["N999"]
 
 [tool.mypy]
@@ -65,7 +69,8 @@ disallow_incomplete_defs = false
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not integration'"
+markers = ["integration: needs Docker and pgbench 18 (run with -m integration)"]
 
 [tool.coverage.run]
 source = ["app"]

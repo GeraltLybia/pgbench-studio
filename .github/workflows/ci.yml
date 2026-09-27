@@ -31,6 +31,30 @@ jobs:
       - name: coverage thresholds (core/api 85 %, rest 70 %)
         run: uv run python scripts/check_coverage.py
 
+  integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - name: pgbench 18 from PGDG
+        # Same approach as the backend image: client package plus the pgbench binary only.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          cd /tmp && apt-get download postgresql-18 && dpkg-deb -x postgresql-18_*.deb pg18
+          echo "PGBENCH_BINARY=/tmp/pg18/usr/lib/postgresql/18/bin/pgbench" >> "$GITHUB_ENV"
+      - name: pytest -m integration (PostgreSQL 13 and 18 in Testcontainers)
+        run: uv run pytest -m integration -v
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -62,7 +86,7 @@ jobs:
 
   images:
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, integration, frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
