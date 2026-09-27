@@ -1,0 +1,79 @@
+/* pgbench studio — дизайн-токены из утверждённых макетов */
+:root {
+  /* поверхности */
+  --color-bg: #F5F6FC;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #FBFBFE;
+  --color-border: #E1E4F0;
+  --color-pill: #EEF2FF;
+  --color-selected: #F7F9FF;
+
+  /* текст */
+  --color-text: #14141A;
+  --color-text-muted: #5E6275;
+
+  /* акценты */
+  --color-primary: #145FF5;
+  --color-on-primary: #FFFFFF;
+  --color-primary-deep: #1B3F9E;
+  --color-cyan: #2ED0FF;
+  --color-orange: #FF5A00;
+  --color-orange-text: #C74400;
+  --color-warning-bg: #FFF1E8;
+  --color-warning-border: #FFC7A6;
+  --color-disabled: #C9D3EE;
+  /* жёлтый индикатор «есть предупреждения» (в макетах не показан) */
+  --color-yellow: #F5B400;
+
+  /* консоль логов и превью команды */
+  --color-code-bg: #0F1E4D;
+  --color-code-text: #E6ECFF;
+  --color-code-muted: #9FB3E8;
+
+  /* левая панель экрана входа (по макету) */
+  --color-hero-bg: #1B3F9E;
+  --color-hero-text: #FFFFFF;
+  --color-hero-muted: #C9D6FF;
+
+  /* графики */
+  --chart-tps: var(--color-primary);
+  --chart-latency: var(--color-orange);
+  --chart-cpu: var(--color-primary);
+  --chart-ram: var(--color-cyan);
+
+  /* типографика */
+  --font-body: 'Golos Text', system-ui, sans-serif;
+  --font-display: 'Unbounded', 'Golos Text', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  /* формы */
+  --radius-card: 24px;
+  --radius-field: 12px;
+  --radius-pill: 999px;
+  --control-height: 44px;
+}
+
+[data-theme="dark"] {
+  --color-bg: #0D1020;
+  --color-surface: #171B2B;
+  --color-surface-muted: #12162A;
+  --color-border: #2A3047;
+  --color-pill: #1F2A4D;
+  --color-selected: #1B2340;
+
+  --color-text: #ECEEF6;
+  --color-text-muted: #9AA0B8;
+
+  --color-primary: #5B8CFF;
+  --color-on-primary: #0D1020;
+  --color-primary-deep: #A9C1FF;
+  --color-orange-text: #FF8A4C;
+  --color-warning-bg: #3A2014;
+  --color-warning-border: #6B3A1F;
+  --color-disabled: #262C44;
+
+  --color-code-bg: #080B18;
+
+  --color-hero-bg: #13214F;
+  --color-hero-muted: #B8C4EA;
+}

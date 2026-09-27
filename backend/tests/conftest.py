@@ -1,0 +1,116 @@
+from __future__ import annotations
+
+import contextlib
+import stat
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Any
+
+import pytest
+from cryptography.fernet import Fernet
+from fastapi.testclient import TestClient
+
+from app.config import Settings
+from app.main import create_app
+from app.storage import repo
+from app.storage.models import Role, User
+
+ADMIN = "admin"
+ADMIN_PASSWORD = "admin-password"
+PASSWORD = "user-password"
+
+
+@pytest.fixture
+def fake_pgbench(tmp_path: Path) -> Path:
+    script = tmp_path / "pgbench"
+    script.write_text("#!/bin/sh\necho 'pgbench (PostgreSQL) 18.1'\n")
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    return script
+
+
+@pytest.fixture
+def secret_env(monkeypatch: pytest.MonkeyPatch) -> str:
+    key = Fernet.generate_key().decode()
+    monkeypatch.setenv("PGB_STUDIO_SECRET_KEY", key)
+    monkeypatch.setenv("PGB_STUDIO_ADMIN_USER", ADMIN)
+    monkeypatch.setenv("PGB_STUDIO_ADMIN_PASSWORD", ADMIN_PASSWORD)
+    return key
+
+
+@pytest.fixture
+def make_settings(tmp_path: Path, fake_pgbench: Path) -> Callable[..., Settings]:
+    def factory(**sections: dict[str, Any]) -> Settings:
+        data: dict[str, dict[str, Any]] = {
+            "storage": {
+                "sqlite_path": str(tmp_path / "data" / "studio.db"),
+                "runs_dir": str(tmp_path / "data" / "runs"),
+            },
+            "pgbench": {"binary": str(fake_pgbench)},
+            "limits": {"min_free_disk_gb": 0},
+        }
+        for name, values in sections.items():
+            data.setdefault(name, {}).update(values)
+        return Settings(**data)
+
+    return factory
+
+
+@pytest.fixture
+def settings(make_settings: Callable[..., Settings]) -> Settings:
+    return make_settings()
+
+
+class Api:
+    """TestClient wrapper with helpers for users and logins."""
+
+    def __init__(self, client: TestClient) -> None:
+        self.client = client
+
+    def run(self, fn: Callable[..., Any], *args: Any) -> Any:
+        return self.client.portal.call(fn, *args)  # type: ignore[union-attr]
+
+    def db_call(self, fn: Callable[..., Any], *args: Any) -> Any:
+        async def inner() -> Any:
+            async with self.client.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+                result = await fn(db, *args)
+                await db.commit()
+                return result
+
+        return self.run(inner)
+
+    def add_user(
+        self, username: str, role: Role, password: str = PASSWORD, must_change: bool = False
+    ) -> User:
+        async def create(db: Any) -> User:
+            return await repo.create_user(db, username, password, role, must_change)
+
+        user: User = self.db_call(create)
+        return user
+
+    def get_user(self, username: str) -> User:
+        user: User = self.db_call(repo.get_user_by_username, username)
+        return user
+
+    def login(self, username: str, password: str = PASSWORD) -> Any:
+        self.client.cookies.clear()
+        return self.client.post(
+            "/api/auth/login", json={"username": username, "password": password}
+        )
+
+    def login_as(self, role: Role | None) -> None:
+        """Log in as a fresh user with the given role; None means no session."""
+        self.client.cookies.clear()
+        if role is None:
+            return
+        name = f"user-{role.value}"
+        with contextlib.suppress(Exception):  # the user may already exist
+            self.add_user(name, role)
+        resp = self.login(name)
+        assert resp.status_code == 200, resp.text
+
+
+@pytest.fixture
+def api(settings: Settings, secret_env: str) -> Iterator[Api]:
+    app = create_app(settings)
+    with TestClient(app, base_url="https://testserver") as client:
+        yield Api(client)
