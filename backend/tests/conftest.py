@@ -11,9 +11,30 @@ from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.core.connection import ConnFailure, ConnParams, ServerFacts
 from app.main import create_app
 from app.storage import repo
 from app.storage.models import Role, User
+
+# Fake pgbench: --version, and `-i` output modelled on pgbench 18. Behaviour is selected by
+# PGDATABASE because the runner passes only PATH, LC_ALL, HOME and PG* to the child.
+FAKE_PGBENCH = r"""#!/bin/sh
+if [ "$1" = "--version" ]; then echo 'pgbench (PostgreSQL) 18.1'; exit 0; fi
+env > "$HOME/env.txt"
+echo "$@" > "$HOME/argv.txt"
+case "$PGDATABASE" in
+  failme) echo 'pgbench: error: connection to server failed: FATAL:  boom' >&2; exit 1 ;;
+  slow) echo 'dropping old tables...' >&2; exec sleep 30 ;;
+esac
+echo 'dropping old tables...' >&2
+echo 'creating tables...' >&2
+echo 'generating data (client-side)...' >&2
+printf '50000 of 100000 tuples (50%%) of pgbench_accounts done (elapsed 0.01 s, remaining 0.01 s)\r' >&2
+echo '100000 of 100000 tuples (100%) of pgbench_accounts done (elapsed 0.02 s, remaining 0.00 s)' >&2
+echo 'vacuuming...' >&2
+echo 'creating primary keys...' >&2
+echo 'done in 0.05 s (drop tables 0.00 s, create tables 0.00 s, client-side generate 0.02 s, vacuum 0.01 s, primary keys 0.02 s).' >&2
+"""
 
 ADMIN = "admin"
 ADMIN_PASSWORD = "admin-password"
@@ -23,7 +44,7 @@ PASSWORD = "user-password"
 @pytest.fixture
 def fake_pgbench(tmp_path: Path) -> Path:
     script = tmp_path / "pgbench"
-    script.write_text("#!/bin/sh\necho 'pgbench (PostgreSQL) 18.1'\n")
+    script.write_text(FAKE_PGBENCH)
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return script
 
@@ -109,8 +130,34 @@ class Api:
         assert resp.status_code == 200, resp.text
 
 
+class FakeChecker:
+    """Stands in for the psycopg connection check; records what it was called with."""
+
+    def __init__(self) -> None:
+        self.calls: list[ConnParams] = []
+        self.result: ServerFacts | ConnFailure = FACTS
+
+    async def __call__(self, params: ConnParams) -> ServerFacts | ConnFailure:
+        self.calls.append(params)
+        return self.result
+
+
+FACTS = ServerFacts(
+    server_version="18.0",
+    server_version_num=180000,
+    response_ms=1.8,
+    max_connections=200,
+    reserved_connections=3,
+    used_connections=13,
+    pgbench_tables=True,
+    scale=100,
+    accounts_rows=10_000_000,
+)
+
+
 @pytest.fixture
 def api(settings: Settings, secret_env: str) -> Iterator[Api]:
     app = create_app(settings)
     with TestClient(app, base_url="https://testserver") as client:
+        app.state.connection_checker = FakeChecker()
         yield Api(client)
