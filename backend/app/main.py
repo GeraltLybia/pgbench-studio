@@ -14,12 +14,15 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api import auth, health, system, users
+from app.api import auth, health, profiles, runs, system, users
 from app.config import Settings, load_settings
+from app.core.connection import check_connection
 from app.core.healthchecks import HealthService
+from app.core.runner import RunManager
 from app.security.login_guard import IpLoginGuard
 from app.security.sessions import purge_expired
 from app.storage import repo
+from app.storage.crypto import SecretBox
 from app.storage.db import create_engine_for, head_revision, make_sessionmaker, run_migrations
 
 log = logging.getLogger(__name__)
@@ -28,7 +31,7 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 async def startup(app: FastAPI, settings: Settings) -> None:
-    settings.secret_key()  # refuses to start without a valid key
+    key = settings.secret_key()  # refuses to start without a valid key
     storage = settings.storage
     await asyncio.to_thread(run_migrations, storage.sqlite_path)
     storage.runs_dir.mkdir(parents=True, exist_ok=True)
@@ -52,6 +55,12 @@ async def startup(app: FastAPI, settings: Settings) -> None:
     app.state.health = HealthService(
         settings, app.state.config_file, head_revision(storage.sqlite_path)
     )
+    app.state.secret_box = SecretBox(key)
+    app.state.connection_checker = check_connection
+    app.state.runs = RunManager(
+        sessionmaker, storage.runs_dir, settings.pgbench.max_parallel_runs, settings.pgbench.binary
+    )
+    await app.state.runs.recover()
 
 
 def create_app(settings: Settings | None = None, config_file: Path | None = None) -> FastAPI:
@@ -62,6 +71,7 @@ def create_app(settings: Settings | None = None, config_file: Path | None = None
         await startup(app, settings)
         log.info("backend started", extra={"version": __version__, "agent": settings.agent.name})
         yield
+        await app.state.runs.shutdown()
         await app.state.engine.dispose()
 
     app = FastAPI(
@@ -101,4 +111,6 @@ def create_app(settings: Settings | None = None, config_file: Path | None = None
     app.include_router(auth.router)
     app.include_router(users.router)
     app.include_router(system.router)
+    app.include_router(profiles.router)
+    app.include_router(runs.router)
     return app

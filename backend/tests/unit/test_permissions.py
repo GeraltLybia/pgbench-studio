@@ -13,7 +13,15 @@ from tests.conftest import Api
 
 PUBLIC = {("GET", "/healthz"), ("GET", "/readyz"), ("POST", "/api/auth/login")}
 
-# (method, path, body, minimal role). Paths use id 1 — the bootstrapped admin always exists.
+PROFILE = {
+    "name": "p",
+    "host": "db",
+    "dbname": "bench",
+    "user": "u",
+}
+
+# (method, path, body, minimal role). Paths use id 1 — the bootstrapped admin always exists;
+# a missing profile or run answers 404, which still proves the role check passed.
 ENDPOINTS: list[tuple[str, str, dict[str, Any] | None, Role]] = [
     ("GET", "/api/auth/me", None, Role.viewer),
     ("POST", "/api/auth/logout", None, Role.viewer),
@@ -29,7 +37,22 @@ ENDPOINTS: list[tuple[str, str, dict[str, Any] | None, Role]] = [
     ("POST", "/api/users", {"username": "newbie", "role": "viewer"}, Role.admin),
     ("PATCH", "/api/users/1", {"role": "admin"}, Role.admin),
     ("POST", "/api/users/1/reset-password", None, Role.admin),
+    ("GET", "/api/profiles", None, Role.viewer),
+    ("POST", "/api/profiles", PROFILE, Role.editor),
+    ("PUT", "/api/profiles/1", PROFILE, Role.editor),
+    ("DELETE", "/api/profiles/1", None, Role.editor),
+    ("POST", "/api/profiles/test", {"host": "db", "dbname": "b", "user": "u"}, Role.editor),
+    ("POST", "/api/profiles/1/init", {"scale": 1, "confirm_dbname": "x"}, Role.editor),
+    ("GET", "/api/runs/1", None, Role.viewer),
 ]
+
+TEMPLATES = {
+    "/api/users/1": "/api/users/{user_id}",
+    "/api/users/1/reset-password": "/api/users/{user_id}/reset-password",
+    "/api/profiles/1": "/api/profiles/{profile_id}",
+    "/api/profiles/1/init": "/api/profiles/{profile_id}/init",
+    "/api/runs/1": "/api/runs/{run_id}",
+}
 
 ROLES: list[Role | None] = [None, Role.viewer, Role.editor, Role.admin]
 
@@ -37,7 +60,7 @@ ROLES: list[Role | None] = [None, Role.viewer, Role.editor, Role.admin]
 def test_matrix_covers_every_route(settings: Settings) -> None:
     schema = create_app(settings).openapi()
     routes = {(method.upper(), path) for path, item in schema["paths"].items() for method in item}
-    listed = {(m, p.replace("/1", "/{user_id}")) for m, p, _, _ in ENDPOINTS}
+    listed = {(m, TEMPLATES.get(p, p)) for m, p, _, _ in ENDPOINTS}
     assert routes - PUBLIC == listed
 
 
