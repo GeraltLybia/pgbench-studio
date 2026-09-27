@@ -43,4 +43,27 @@
 
 ## Команды
 
-Заполняются на этапе 0 (установка, запуск dev-окружения, тесты, линтеры).
+Бэкенд (из `backend/`):
+
+- установка: `uv sync`
+- проверки: `uv run ruff check . && uv run ruff format --check . && uv run mypy app`
+- тесты с порогами покрытия: `uv run pytest --cov=app --cov-report=json && uv run python scripts/check_coverage.py`
+- запуск локально: `PGB_STUDIO_SECRET_KEY=$(uv run studio gen-key) uv run studio --config <config.yaml> serve` (для локального HTTP нужен `server.dev_mode: true`)
+- ключ шифрования: `uv run studio gen-key`; схема OpenAPI: `uv run studio openapi -o ../frontend/openapi.json`
+- аварийный доступ: `studio users reset-admin [--username NAME]`
+- образ: `docker build -t pgbench-studio-backend backend`
+
+Фронтенд (из `frontend/`):
+
+- установка: `pnpm install`
+- dev-сервер: `pnpm dev` (http://localhost:5173, проксирует `/api` на бэкенд `127.0.0.1:8000`, адрес меняется через `PGB_STUDIO_BACKEND`)
+- проверки: `pnpm lint && pnpm typecheck && pnpm test`
+- типы API из OpenAPI бэкенда: `pnpm gen:api` (обновляет `openapi.json` и `src/types/api.ts`, руками не править)
+- сборка: `pnpm build`
+
+Docker compose (из корня):
+
+- первый запуск: `cp config.example.yaml config.yaml && cp .env.example .env`, в `.env` задать `PGB_STUDIO_SECRET_KEY` (`studio gen-key`) и пароль первого админа; для локального HTTP в `config.yaml` — `server.dev_mode: true`, `auth.cookie_secure: false`
+- запуск: `docker compose up -d --build`, состояние: `docker compose ps` (все `healthy`), приложение — http://localhost:8080
+- тестовые базы внутри сети compose: `pg13:5432` и `pg18:5432`, пользователь и база `bench`, пароль `PGB_TEST_DB_PASSWORD` (по умолчанию `bench`)
+- аварийный доступ: `docker compose exec backend studio users reset-admin`
