@@ -27,3 +27,6 @@ coverage/
 *.tsbuildinfo
 playwright-report/
 test-results/
+
+# local Claude Code launch config
+.claude/
