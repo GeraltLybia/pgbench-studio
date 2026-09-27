@@ -145,3 +145,12 @@ class Run(Base):
     summary_json: Mapped[str | None] = mapped_column(Text, default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     note: Mapped[str | None] = mapped_column(Text, default=None)
+
+
+class Script(Base):
+    __tablename__ = "scripts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    body: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)

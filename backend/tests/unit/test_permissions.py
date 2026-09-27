@@ -20,6 +20,13 @@ PROFILE = {
     "user": "u",
 }
 
+RUN = {
+    "profile_id": 1,
+    "duration_s": 60,
+    "scenarios": [{"kind": "builtin", "name": "select-only"}],
+}
+DRY = {"profile_id": 1, "scenario": {"kind": "builtin", "name": "select-only"}}
+
 # (method, path, body, minimal role). Paths use id 1 — the bootstrapped admin always exists;
 # a missing profile or run answers 404, which still proves the role check passed.
 ENDPOINTS: list[tuple[str, str, dict[str, Any] | None, Role]] = [
@@ -44,6 +51,15 @@ ENDPOINTS: list[tuple[str, str, dict[str, Any] | None, Role]] = [
     ("POST", "/api/profiles/test", {"host": "db", "dbname": "b", "user": "u"}, Role.editor),
     ("POST", "/api/profiles/1/init", {"scale": 1, "confirm_dbname": "x"}, Role.editor),
     ("GET", "/api/runs/1", None, Role.viewer),
+    ("GET", "/api/scripts", None, Role.viewer),
+    ("POST", "/api/scripts", {"name": "s.sql", "body": "SELECT 1;"}, Role.editor),
+    ("PUT", "/api/scripts/1", {"name": "s.sql", "body": "SELECT 1;"}, Role.editor),
+    ("DELETE", "/api/scripts/1", None, Role.editor),
+    ("POST", "/api/scripts/validate", {"body": "SELECT 1;"}, Role.viewer),
+    ("GET", "/api/builtins", None, Role.viewer),
+    ("POST", "/api/runs/preview", RUN, Role.editor),
+    ("POST", "/api/runs/dry", DRY, Role.editor),
+    ("POST", "/api/runs", RUN, Role.editor),
 ]
 
 TEMPLATES = {
@@ -52,6 +68,7 @@ TEMPLATES = {
     "/api/profiles/1": "/api/profiles/{profile_id}",
     "/api/profiles/1/init": "/api/profiles/{profile_id}/init",
     "/api/runs/1": "/api/runs/{run_id}",
+    "/api/scripts/1": "/api/scripts/{script_id}",
 }
 
 ROLES: list[Role | None] = [None, Role.viewer, Role.editor, Role.admin]

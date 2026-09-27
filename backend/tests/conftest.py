@@ -20,8 +20,24 @@ from app.storage.models import Role, User
 # PGDATABASE because the runner passes only PATH, LC_ALL, HOME and PG* to the child.
 FAKE_PGBENCH = r"""#!/bin/sh
 if [ "$1" = "--version" ]; then echo 'pgbench (PostgreSQL) 18.1'; exit 0; fi
+case "$1" in
+  --show-script=select-only)
+    printf -- '-- select-only: <builtin: select only>\n\\set aid random(1, 100000 * :scale)\nSELECT abalance FROM pgbench_accounts WHERE aid = :aid;\n\n'; exit 0 ;;
+  --show-script=*)
+    name="${1#--show-script=}"; printf -- "-- $name: <builtin: $name title>\nSELECT 1;\n"; exit 0 ;;
+esac
 env > "$HOME/env.txt"
 echo "$@" > "$HOME/argv.txt"
+ls > "$HOME/files.txt"
+if [ "$1" != "-i" ]; then
+  case "$PGDATABASE" in
+    failme) echo 'pgbench: error: client 0 aborted in command 1 (SQL) of script 0; ERROR:  boom' >&2; exit 2 ;;
+    slow) exec sleep 30 ;;
+  esac
+  echo 'transaction type: multiple scripts'
+  echo 'number of transactions actually processed: 1/1'
+  exit 0
+fi
 case "$PGDATABASE" in
   failme) echo 'pgbench: error: connection to server failed: FATAL:  boom' >&2; exit 1 ;;
   slow) echo 'dropping old tables...' >&2; exec sleep 30 ;;
