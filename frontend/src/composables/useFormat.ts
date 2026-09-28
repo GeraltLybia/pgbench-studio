@@ -83,6 +83,11 @@ export function formatCompact(value: number): string {
   return integer.format(Math.round(value))
 }
 
+/** Latency in ms: three decimals below 1 ms (0,082), otherwise `digits` (6,64). */
+export function formatLatency(ms: number, digits = 2): string {
+  return formatNumber(ms, ms < 1 ? 3 : digits)
+}
+
 export function formatNumber(value: number, digits = 0): string {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
 }

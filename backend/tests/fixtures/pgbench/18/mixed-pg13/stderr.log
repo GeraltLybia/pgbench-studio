@@ -1,0 +1,6 @@
+starting vacuum...end.
+progress: 1.0 s, 16862.9 tps, lat 0.236 ms stddev 0.129, 0 failed
+progress: 2.0 s, 16623.8 tps, lat 0.239 ms stddev 0.234, 0 failed
+progress: 3.0 s, 16518.3 tps, lat 0.241 ms stddev 0.136, 0 failed
+progress: 4.0 s, 16724.5 tps, lat 0.238 ms stddev 0.127, 0 failed
+progress: 5.0 s, 16872.1 tps, lat 0.236 ms stddev 0.125, 0 failed

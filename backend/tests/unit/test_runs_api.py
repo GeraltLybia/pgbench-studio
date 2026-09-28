@@ -138,6 +138,7 @@ def test_preview_is_the_exact_argv(api: Api, settings: Settings) -> None:
         "-r",
         "-l",
         "--log-prefix=pgbench_log",
+        "--failures-detailed",
         "--aggregate-interval=1",
         "-b",
         "tpcb-like@1",

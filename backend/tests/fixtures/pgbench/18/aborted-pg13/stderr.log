@@ -1,0 +1,5 @@
+starting vacuum...end.
+pgbench: error: client 1 script 0 aborted in command 2 query 0: ERROR:  division by zero
+pgbench: error: client 2 script 0 aborted in command 2 query 0: ERROR:  division by zero
+pgbench: error: client 0 script 0 aborted in command 2 query 0: ERROR:  division by zero
+pgbench: error: unexpected error status: 4
