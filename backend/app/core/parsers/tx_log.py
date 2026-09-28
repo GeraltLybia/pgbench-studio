@@ -145,8 +145,11 @@ def gzip_logs(paths: Iterable[Path]) -> list[Path]:
             result.append(path)
             continue
         target = path.with_name(path.name + ".gz")
-        with path.open("rb") as src, gzip.open(target, "wb") as dst:
+        # Written aside and renamed: an interrupted run never leaves a truncated .gz.
+        partial = path.with_name(path.name + ".gz.part")
+        with path.open("rb") as src, gzip.open(partial, "wb") as dst:
             shutil.copyfileobj(src, dst)
+        partial.replace(target)
         path.unlink()
         result.append(target)
     return result

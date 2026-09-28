@@ -84,7 +84,11 @@ def _ms(us: float) -> float:
 
 def log_files(run_dir: Path) -> list[Path]:
     """pgbench_log.<pid> and pgbench_log.<pid>.<thread>, plain or gzipped by the runner."""
-    return sorted(p for p in run_dir.glob(f"{LOG_PREFIX}.*") if p.is_file() and not p.is_symlink())
+    return sorted(
+        p
+        for p in run_dir.glob(f"{LOG_PREFIX}.*")
+        if p.is_file() and not p.is_symlink() and not p.name.endswith(".part")
+    )
 
 
 def _read_file(path: Path, buckets: dict[int, Bucket]) -> None:

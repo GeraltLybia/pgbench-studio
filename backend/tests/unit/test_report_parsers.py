@@ -247,6 +247,7 @@ def test_aggregate_log_edge_cases(tmp_path: Path) -> None:
         "garbage\n100 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n101 x 1 1 1 1\n102 2 3000 5000000 1000 2000\n"
     )
     (tmp_path / "pgbench_log.2").symlink_to(log)
+    (tmp_path / "pgbench_log.3.gz.part").write_text("interrupted gzip")
     assert log_files(tmp_path) == [log]
     empty, point = parse_agg_logs([log])
     assert (empty.t_s, empty.tx, empty.lat_avg_ms, empty.lat_min_ms) == (0, 0, None, None)
@@ -307,6 +308,7 @@ def test_transaction_log_lag_skipped_and_gzip(tmp_path: Path) -> None:
     plain = parse_tx_logs([log], with_lag=True)
     (gz,) = gzip_logs([log])
     assert gz.name == "pgbench_log.7.gz" and not log.exists()
+    assert not (tmp_path / "pgbench_log.7.gz.part").exists()
     assert gzip.decompress(gz.read_bytes()).startswith(b"0 1 1500")
     assert gzip_logs([gz]) == [gz]
     again = parse_tx_logs(log_files(tmp_path), with_lag=True)
