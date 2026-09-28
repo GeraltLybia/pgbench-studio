@@ -10,13 +10,13 @@ Better = Literal["higher", "lower"]
 # (key in the pgbench summary or percentiles, label, which direction is better)
 METRICS: list[tuple[str, str, Better]] = [
     ("tps", "TPS", "higher"),
-    ("latency_avg_ms", "Latency avg, мс", "lower"),
-    ("latency_stddev_ms", "Latency stddev, мс", "lower"),
-    ("p95", "p95, мс", "lower"),
-    ("p99", "p99, мс", "lower"),
+    ("latency_avg_ms", "Latency avg", "lower"),
+    ("latency_stddev_ms", "Latency stddev", "lower"),
+    ("p95", "p95", "lower"),
+    ("p99", "p99", "lower"),
     ("processed", "Транзакций", "higher"),
     ("failed", "Ошибок", "lower"),
-    ("initial_connection_ms", "Initial connection, мс", "lower"),
+    ("initial_connection_ms", "Initial connection", "lower"),
 ]
 
 _PARAMS: list[tuple[str, str]] = [

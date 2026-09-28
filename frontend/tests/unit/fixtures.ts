@@ -65,6 +65,7 @@ export function run(status: Run['status'], pct: number | null = null): Run {
         : { done: pct, total: 100, pct, elapsed_s: 1, remaining_s: 2, phase: 'Генерация данных' },
     log_tail: [{ stream: 'stderr', line: 'creating tables...' }],
     summary: null,
+    note: null,
   }
 }
 
@@ -142,6 +143,12 @@ export function report(overrides: Partial<Report['run']> = {}, summary: Partial<
       { upper_ms: 14.8, count: 40 },
       { upper_ms: 18.4, count: 5 },
     ],
+    resources: Array.from({ length: 300 }, (_, t) => ({
+      t_s: t,
+      cpu_pct: 30 + (t % 5),
+      ram_pct: 12,
+      ram_used_bytes: 1_000_000_000,
+    })),
     raw_output: MIXED_STDOUT,
     raw_output_truncated: false,
     files: [
