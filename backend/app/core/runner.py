@@ -42,6 +42,7 @@ from app.storage.models import (
     Run,
     RunHistogram,
     RunKind,
+    RunResource,
     RunSeries,
     RunStatement,
     RunStatus,
@@ -456,6 +457,8 @@ class RunManager:
         summary: dict[str, object] = {"exit_code": code}
         if active.report_options is not None:
             summary |= await self._build_report(active.run_id, run_dir, active.report_options)
+        if active.events is not None and active.events.resources:
+            await self._store_resources(active.run_id, active.events.resources)
 
         if active.cancelled_by is not None:
             await self._finish(active, RunStatus.cancelled, "Остановлен пользователем", summary)
@@ -467,6 +470,24 @@ class RunManager:
             await self._finish(
                 active, RunStatus.failed, reason or f"pgbench завершился с кодом {code}", summary
             )
+
+    async def _store_resources(self, run_id: int, samples: list[dict[str, Any]]) -> None:
+        """The agent CPU/RAM series streamed during the run, kept for the report."""
+        async with self._sessionmaker() as db:
+            await db.execute(
+                insert(RunResource),
+                [
+                    {
+                        "run_id": run_id,
+                        "t_s": m["t"],
+                        "cpu_pct": m["cpu_pct"],
+                        "ram_pct": m["ram_pct"],
+                        "ram_used_bytes": m["ram_used_bytes"],
+                    }
+                    for m in samples
+                ],
+            )
+            await db.commit()
 
     async def _build_report(
         self, run_id: int, run_dir: Path, options: ReportOptions
