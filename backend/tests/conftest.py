@@ -32,8 +32,19 @@ ls > "$HOME/files.txt"
 if [ "$1" != "-i" ]; then
   case "$PGDATABASE" in
     failme) echo 'pgbench: error: client 0 aborted in command 1 (SQL) of script 0; ERROR:  boom' >&2; exit 2 ;;
-    slow) exec sleep 30 ;;
+    slow)
+      i=0
+      while [ $i -lt 150 ]; do
+        i=$((i+1))
+        echo "progress: $i.0 s, 100.0 tps, lat 1.000 ms stddev 0.100, 0 failed" >&2
+        sleep 0.2
+      done
+      exit 0 ;;
+    stubborn) trap '' INT TERM; while true; do sleep 0.1; done ;;
+    sigint) trap 'echo interrupted >&2; exit 130' INT; while true; do sleep 0.1; done ;;
   esac
+  echo 'progress: 1.0 s, 5000.0 tps, lat 1.600 ms stddev 0.400, 0 failed' >&2
+  echo 'progress: 2.0 s, 6000.0 tps, lat 1.500 ms stddev 0.300, 1 failed, lag 0.100 ms, 2 skipped' >&2
   echo 'transaction type: multiple scripts'
   echo 'number of transactions actually processed: 1/1'
   exit 0

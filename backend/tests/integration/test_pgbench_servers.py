@@ -11,7 +11,7 @@ from app.config import LimitsSettings
 from app.core.command import InitOptions, build_bench_argv, build_dry_argv
 from app.core.connection import ConnFailure, ServerFacts, check_connection
 from app.core.plan import Plan, build_plan
-from app.core.runner import RunManager, child_env, run_dry
+from app.core.runner import ProgressPlan, RunManager, child_env, run_dry
 from app.core.validator import validate_script
 from app.schemas import RunConfig
 from app.storage.db import create_engine_for, make_sessionmaker, run_migrations
@@ -287,3 +287,44 @@ async def test_version_rule_matches_the_server(server: Server) -> None:
     diagnostics = validate_script(merge, server.major).diagnostics
     has_version_error = any(d.rule == "server_version" for d in diagnostics)
     assert has_version_error is (server.major < 15)
+
+
+# --- stage 3: live progress and cancel with real pgbench ----------------------------------
+
+
+async def test_live_progress_and_cancel(server: Server, runs: RunManager, pgbench: str) -> None:
+    await _init(server, runs)
+    plan = _plan(duration_s=60)
+    run_id = await runs.start_bench(
+        profile_id=1,
+        params=server.params(),
+        argv=build_bench_argv(pgbench, plan.options),
+        files=plan.files,
+        config={},
+        confirmed_rules=[],
+        started_by="it",
+        pgbench_version="18",
+        server_version=None,
+        plan=ProgressPlan(mode="duration", duration_s=60, clients=2),
+    )
+    events = runs.hub.get(run_id)
+    assert events is not None
+    for _ in range(100):
+        if len(events.progress) >= 3:
+            break
+        await asyncio.sleep(0.1)
+    points = events.progress
+    assert len(points) >= 3, [m["line"] for m in events.log]
+    assert points[0]["t"] == 1.0 and points[1]["t"] == 2.0
+    assert all(p["tps"] > 0 for p in points)
+    assert points[2]["pct"] == pytest.approx(5.0) and points[2]["eta_s"] == 57.0
+    assert events.resources, "agent samples arrive every second"
+
+    started = asyncio.get_running_loop().time()
+    await runs.cancel(run_id, "it")
+    await asyncio.wait_for(runs.wait(run_id), 15)
+    assert asyncio.get_running_loop().time() - started < 10
+    async with runs._sessionmaker() as db:
+        run = await db.get(Run, run_id)
+        assert run is not None
+        assert (run.status, run.stopped_by) == (RunStatus.cancelled, "it")

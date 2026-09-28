@@ -22,8 +22,17 @@ from app.core.command import build_bench_argv, build_dry_argv, render_command
 from app.core.healthchecks import HealthService
 from app.core.limits import agent_cpu_count
 from app.core.plan import Plan, build_plan
-from app.core.runner import LogLine, RunLimitError, RunManager, public_params, run_dry
+from app.core.runner import (
+    LogLine,
+    ProgressPlan,
+    RunLimitError,
+    RunManager,
+    RunNotActiveError,
+    public_params,
+    run_dry,
+)
 from app.schemas import (
+    ActiveRunOut,
     CommandPreview,
     ConnectionTestFail,
     DryRunRequest,
@@ -213,6 +222,28 @@ async def start_run(
             started_by=user.username,
             pgbench_version=health.pgbench_version,
             server_version=check.server_version,
+            plan=ProgressPlan(
+                mode=config.mode,
+                duration_s=config.duration_s,
+                clients=config.clients,
+                transactions=config.transactions,
+            ),
+            summary={
+                "profile_id": profile.id,
+                "profile_name": profile.name,
+                "dbname": profile.dbname,
+                "mode": config.mode,
+                "duration_s": config.duration_s,
+                "transactions": config.transactions,
+                "clients": config.clients,
+                "threads": config.threads,
+                "protocol": config.protocol,
+                "rate_tps": config.rate_tps,
+                "progress_interval_s": settings.pgbench.default_progress_interval_s,
+                "scenarios": [
+                    {"kind": s.kind, "name": s.name, "weight": s.weight} for s in config.scenarios
+                ],
+            },
         )
     except RunLimitError as exc:
         raise api_error(
@@ -239,6 +270,38 @@ def _file_tail(path: Path, stream: str, limit: int) -> list[LogLineOut]:
     with path.open(encoding="utf-8", errors="replace") as fh:
         lines = deque((line.rstrip("\n") for line in fh), maxlen=limit)
     return [LogLineOut(stream=stream, line=line) for line in lines if line]
+
+
+@router.get("/active", response_model=ActiveRunOut, responses=_ERRORS)
+async def active_run(request: Request, db: DbDep, _user: ViewerDep) -> ActiveRunOut:
+    """The run in progress on this agent, for the «Выполнение · идёт» menu item."""
+    runs: RunManager = request.app.state.runs
+    for run_id in runs.active_ids:
+        run = await db.get(Run, run_id)
+        if run is not None:
+            return ActiveRunOut(run_id=run.id, kind=run.kind, status=run.status)
+    return ActiveRunOut(run_id=None, kind=None, status=None)
+
+
+@router.post(
+    "/{run_id}/cancel",
+    status_code=202,
+    response_model=RunStarted,
+    responses={**_ERRORS, 409: {"model": ErrorResponse}},
+)
+async def cancel_run(run_id: int, request: Request, db: DbDep, user: EditorDep) -> RunStarted:
+    """SIGINT, then SIGTERM after 5 s, then SIGKILL after 5 more; the status becomes cancelled."""
+    if await db.get(Run, run_id) is None:
+        raise api_error(404, "run_not_found", "Запуск не найден")
+    runs: RunManager = request.app.state.runs
+    try:
+        await runs.cancel(run_id, user.username)
+    except RunNotActiveError as exc:
+        raise api_error(409, "run_not_active", "Запуск уже завершён") from exc
+    log.info(
+        "run cancel", extra={"ip": client_ip(request), "username": user.username, "run_id": run_id}
+    )
+    return RunStarted(run_id=run_id)
 
 
 @router.get(

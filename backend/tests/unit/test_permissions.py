@@ -60,6 +60,8 @@ ENDPOINTS: list[tuple[str, str, dict[str, Any] | None, Role]] = [
     ("POST", "/api/runs/preview", RUN, Role.editor),
     ("POST", "/api/runs/dry", DRY, Role.editor),
     ("POST", "/api/runs", RUN, Role.editor),
+    ("GET", "/api/runs/active", None, Role.viewer),
+    ("POST", "/api/runs/1/cancel", None, Role.editor),
 ]
 
 TEMPLATES = {
@@ -68,6 +70,7 @@ TEMPLATES = {
     "/api/profiles/1": "/api/profiles/{profile_id}",
     "/api/profiles/1/init": "/api/profiles/{profile_id}/init",
     "/api/runs/1": "/api/runs/{run_id}",
+    "/api/runs/1/cancel": "/api/runs/{run_id}/cancel",
     "/api/scripts/1": "/api/scripts/{script_id}",
 }
 
