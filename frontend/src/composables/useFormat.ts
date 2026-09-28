@@ -66,3 +66,23 @@ export function isToday(value: string | Date): boolean {
   const date = typeof value === 'string' ? new Date(value) : value
   return date.toDateString() === new Date().toDateString()
 }
+
+/** 114 -> «1 мин 54 с», 3725 -> «1 ч 2 мин» */
+export function formatLeft(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (h > 0) return `${h} ч ${m} мин`
+  return m > 0 ? `${m} мин ${s % 60} с` : `${s % 60} с`
+}
+
+/** 1440000 -> «1,44 млн» */
+export function formatCompact(value: number): string {
+  if (value >= 1_000_000) return `${decimal.format(Math.round(value / 10_000) / 100)} млн`
+  if (value >= 10_000) return `${decimal.format(Math.round(value / 100) / 10)} тыс`
+  return integer.format(Math.round(value))
+}
+
+export function formatNumber(value: number, digits = 0): string {
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
+}

@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { useIntervalFn } from '@vueuse/core'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import AppIcon, { type IconName } from '@/components/ui/AppIcon.vue'
+import { ACTIVE_POLL_MS, useActiveRunStore } from '@/stores/activeRun'
 import { useAuthStore } from '@/stores/auth'
 import { useProfilesStore } from '@/stores/profiles'
 import ConnectionCard from './ConnectionCard.vue'
@@ -15,32 +18,49 @@ interface NavItem {
   step?: number
   /** Shown instead of a link while the screen has nothing to open. */
   hint?: string
+  badge?: string
 }
 
 const auth = useAuthStore()
 const profiles = useProfilesStore()
+const activeRun = useActiveRunStore()
+const route = useRoute()
+
+onMounted(() => void activeRun.refresh())
+useIntervalFn(() => void activeRun.refresh(), ACTIVE_POLL_MS)
 
 const NO_CHECK = 'Сначала успешно проверьте соединение'
 
-// Load, Run and Report open only after a successful connection check (router guard too).
-const steps = computed<NavItem[]>(() => [
-  { label: 'Подключение', icon: 'plug', to: '/connect', step: 1 },
-  profiles.connected
-    ? { label: 'Нагрузка', icon: 'sliders', to: '/load', step: 2 }
-    : { label: 'Нагрузка', icon: 'sliders', step: 2, hint: NO_CHECK },
-  {
-    label: 'Выполнение',
-    icon: 'activity',
-    step: 3,
-    hint: profiles.connected ? 'Нет активного запуска' : NO_CHECK,
-  },
-  {
-    label: 'Отчёт',
-    icon: 'chart',
-    step: 4,
-    hint: profiles.connected ? 'Нет завершённых запусков' : NO_CHECK,
-  },
-])
+/** Run on screen now (its screen or its report). */
+const routeRunId = computed(() =>
+  route.name === 'run' || route.name === 'report' ? Number(route.params.id) : null,
+)
+
+// Load, Run and Report open only after a successful connection check (router guard too);
+// viewers cannot run the check, so they may watch runs without it.
+const steps = computed<NavItem[]>(() => {
+  const gate = profiles.connected || !auth.can('connection.test')
+  const running = activeRun.active?.run_id ?? null
+  const runId = running ?? routeRunId.value
+  return [
+    { label: 'Подключение', icon: 'plug', to: '/connect', step: 1 },
+    profiles.connected
+      ? { label: 'Нагрузка', icon: 'sliders', to: '/load', step: 2 }
+      : { label: 'Нагрузка', icon: 'sliders', step: 2, hint: NO_CHECK },
+    gate && runId !== null
+      ? {
+          label: 'Выполнение',
+          icon: 'activity',
+          step: 3,
+          to: `/runs/${runId}`,
+          badge: running !== null ? 'идёт' : undefined,
+        }
+      : { label: 'Выполнение', icon: 'activity', step: 3, hint: gate ? 'Нет активного запуска' : NO_CHECK },
+    gate && routeRunId.value !== null
+      ? { label: 'Отчёт', icon: 'chart', step: 4, to: `/runs/${routeRunId.value}/report` }
+      : { label: 'Отчёт', icon: 'chart', step: 4, hint: gate ? 'Откройте запуск из истории' : NO_CHECK },
+  ]
+})
 
 const secondary = computed<NavItem[]>(() => [
   { label: 'История запусков', icon: 'clock', to: '/history' },
@@ -57,10 +77,11 @@ const secondary = computed<NavItem[]>(() => [
     <nav aria-label="Основное меню">
       <ul>
         <li v-for="item in steps" :key="item.label">
-          <RouterLink v-if="item.to" :to="item.to" class="nav-item" active-class="active">
+          <RouterLink v-if="item.to" :to="item.to" class="nav-item" exact-active-class="active">
             <AppIcon :name="item.icon" />
             <span class="label">{{ item.label }}</span>
-            <span class="step">{{ item.step }}</span>
+            <span v-if="item.badge" class="badge"><i class="pulse" />{{ item.badge }}</span>
+            <span v-else class="step">{{ item.step }}</span>
           </RouterLink>
           <span v-else class="nav-item disabled" aria-disabled="true" :title="item.hint">
             <AppIcon :name="item.icon" />
@@ -164,6 +185,29 @@ hr {
 
 .active .step {
   color: var(--color-primary);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-cyan);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .bottom {

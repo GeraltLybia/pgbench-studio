@@ -7,6 +7,7 @@ import { runsApi } from '@/api/runs'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { useRunPlan, type PlanItem } from '@/composables/useRunPlan'
+import { useActiveRunStore } from '@/stores/activeRun'
 import { useLoadConfigStore } from '@/stores/loadConfig'
 import { useProfilesStore } from '@/stores/profiles'
 
@@ -15,6 +16,7 @@ const emit = defineEmits<{ close: [] }>()
 const store = useLoadConfigStore()
 const profiles = useProfilesStore()
 const router = useRouter()
+const activeRun = useActiveRunStore()
 const { toConfirm, attention } = useRunPlan()
 
 /** Items the server asked for that the form did not know about (e.g. fresh connection facts). */
@@ -70,6 +72,7 @@ async function start(): Promise<void> {
       profile_id: profiles.active.id,
       confirmed_rules: items.value.map((i) => i.ruleId),
     })
+    activeRun.set(run_id)
     emit('close')
     await router.push(`/runs/${run_id}`)
   } catch (e) {
