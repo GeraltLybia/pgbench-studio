@@ -96,11 +96,33 @@ def _stored_password(box: SecretBox, profile: Profile) -> str | None:
         ) from exc
 
 
-async def _get_or_404(db: DbDep, profile_id: int) -> Profile:
+async def get_profile_or_404(db: DbDep, profile_id: int) -> Profile:
     profile = await db.get(Profile, profile_id)
     if profile is None:
         raise api_error(404, "profile_not_found", "Профиль не найден")
     return profile
+
+
+def profile_params(request: Request, profile: Profile) -> ConnParams:
+    """Connection parameters of a saved profile with its decrypted password."""
+    return _params(
+        ConnectionFields.model_validate(profile, from_attributes=True),
+        _stored_password(_box(request), profile),
+    )
+
+
+async def require_ready_agent(request: Request) -> None:
+    """503 when a required health check fails: no pgbench is started then."""
+    health: HealthService = request.app.state.health
+    _, checks = await health.results()
+    failed = [c.title for c in checks if c.required and c.status == "fail"]
+    if failed:
+        raise api_error(
+            503,
+            "agent_not_ready",
+            "Запуск заблокирован: не пройдены обязательные проверки агента: " + ", ".join(failed),
+            failed=failed,
+        )
 
 
 def _pgbench_major(request: Request) -> tuple[str | None, int | None]:
@@ -183,7 +205,7 @@ async def create_profile(
 async def update_profile(
     profile_id: int, body: ProfileUpdate, request: Request, db: DbDep, user: EditorDep
 ) -> ProfileOut:
-    profile = await _get_or_404(db, profile_id)
+    profile = await get_profile_or_404(db, profile_id)
     for key, value in body.model_dump(exclude={"password", "clear_password"}).items():
         setattr(profile, key, value)
     if body.password is not None:
@@ -207,7 +229,7 @@ async def update_profile(
     "/{profile_id}", status_code=204, responses={**_ERRORS, 404: {"model": ErrorResponse}}
 )
 async def delete_profile(profile_id: int, request: Request, db: DbDep, user: EditorDep) -> Response:
-    profile = await _get_or_404(db, profile_id)
+    profile = await get_profile_or_404(db, profile_id)
     await db.delete(profile)
     await db.commit()
     log.info(
@@ -227,7 +249,7 @@ async def test_connection(
 ) -> ConnectionTestOk | ConnectionTestFail:
     password = body.password
     if password is None and body.profile_id is not None:
-        password = _stored_password(_box(request), await _get_or_404(db, body.profile_id))
+        password = _stored_password(_box(request), await get_profile_or_404(db, body.profile_id))
     return await run_check(request, _params(body, password))
 
 
@@ -251,7 +273,7 @@ async def init_profile(
     settings: SettingsDep,
     user: EditorDep,
 ) -> RunStarted:
-    profile = await _get_or_404(db, profile_id)
+    profile = await get_profile_or_404(db, profile_id)
 
     if body.confirm_dbname != profile.dbname:
         raise api_error(
@@ -272,21 +294,9 @@ async def init_profile(
             422, "large_data_unconfirmed", "Оценка объёма данных больше 50 ГБ: нужно подтверждение"
         )
 
+    await require_ready_agent(request)
     health: HealthService = request.app.state.health
-    _, checks = await health.results()
-    failed = [c.title for c in checks if c.required and c.status == "fail"]
-    if failed:
-        raise api_error(
-            503,
-            "agent_not_ready",
-            "Запуск заблокирован: не пройдены обязательные проверки агента: " + ", ".join(failed),
-            failed=failed,
-        )
-
-    params = _params(
-        ConnectionFields.model_validate(profile, from_attributes=True),
-        _stored_password(_box(request), profile),
-    )
+    params = profile_params(request, profile)
     check = await run_check(request, params)
     if isinstance(check, ConnectionTestFail):
         # Same structure as POST /api/profiles/test; pgbench is not started.

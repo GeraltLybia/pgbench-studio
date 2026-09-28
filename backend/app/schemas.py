@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.security.passwords import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH
 from app.storage.models import Role
@@ -109,6 +109,8 @@ class LimitsOut(BaseModel):
 
 class SystemInfo(BaseModel):
     app_version: str
+    cpu_count: int
+    default_progress_interval_s: int
     agent_name: str
     pgbench_version: str | None
     dev_mode: bool
@@ -255,3 +257,144 @@ class RunOut(BaseModel):
     config: dict[str, Any]
     progress: InitProgressOut | None
     log_tail: list[LogLineOut]
+
+
+# --- scripts and run configuration -------------------------------------------------------
+
+SCRIPT_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+VARIABLE_NAME_PATTERN = r"^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+MAX_SCRIPT_BYTES = 64 * 1024
+
+ScriptBody = Annotated[str, StringConstraints(max_length=MAX_SCRIPT_BYTES)]
+
+
+class ScriptIn(BaseModel):
+    name: str = Field(pattern=SCRIPT_NAME_PATTERN)
+    body: ScriptBody
+
+
+class ScriptOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    body: str
+    updated_at: datetime
+
+
+class ValidateRequest(BaseModel):
+    body: ScriptBody
+    server_major: int | None = Field(default=None, ge=9, le=99)
+    # Variables that come from -D; they do not trigger «unknown variable».
+    variables: list[Annotated[str, StringConstraints(pattern=VARIABLE_NAME_PATTERN)]] = []
+
+
+class DiagnosticOut(BaseModel):
+    line: int
+    col: int
+    end_col: int
+    severity: Literal["error", "danger", "warning"]
+    message: str
+    rule: str | None
+
+
+class ValidateResponse(BaseModel):
+    diagnostics: list[DiagnosticOut]
+    variables_used: list[str]
+    variables_defined: list[str]
+    has_errors: bool
+
+
+class BuiltinOut(BaseModel):
+    name: Literal["tpcb-like", "simple-update", "select-only"]
+    title: str
+    body: str
+
+
+class BuiltinScenario(BaseModel):
+    kind: Literal["builtin"]
+    name: Literal["tpcb-like", "simple-update", "select-only"]
+    weight: int = Field(default=1, ge=1, le=1000)
+
+
+class ScriptScenario(BaseModel):
+    kind: Literal["script"]
+    name: str = Field(pattern=SCRIPT_NAME_PATTERN)
+    body: ScriptBody
+    weight: int = Field(default=1, ge=1, le=1000)
+    # Library script it was taken from; the body above is what runs.
+    script_id: int | None = None
+
+
+Scenario = Annotated[BuiltinScenario | ScriptScenario, Field(discriminator="kind")]
+
+
+class Variable(BaseModel):
+    name: str = Field(pattern=VARIABLE_NAME_PATTERN)
+    value: str = Field(max_length=256, pattern=r"^[^\x00]*$")
+
+
+class RunConfig(BaseModel):
+    profile_id: int
+    mode: Literal["duration", "transactions"] = "duration"
+    duration_s: int | None = Field(default=None, ge=1)
+    transactions: int | None = Field(default=None, ge=1)
+    clients: int = Field(default=1, ge=1, le=10_000)
+    threads: int = Field(default=1, ge=1, le=1024)
+    protocol: Literal["simple", "extended", "prepared"] = "simple"
+    rate_tps: float | None = Field(default=None, gt=0)
+    latency_limit_ms: float | None = Field(default=None, gt=0)
+    vacuum: bool = True
+    variables: list[Variable] = Field(default_factory=list, max_length=50)
+    detailed_log: bool = False
+    sampling_rate: float | None = Field(default=None, gt=0, le=1)
+    scenarios: list[Scenario] = Field(min_length=1, max_length=20)
+    confirmed_rules: list[str] = Field(default_factory=list, max_length=200)
+
+    @model_validator(mode="after")
+    def _consistent(self) -> RunConfig:
+        if self.mode == "duration" and self.duration_s is None:
+            raise ValueError("duration_s is required in duration mode")
+        if self.mode == "transactions" and self.transactions is None:
+            raise ValueError("transactions is required in transactions mode")
+        if self.sampling_rate is not None and not self.detailed_log:
+            raise ValueError("sampling_rate is only allowed with detailed_log")
+        names = [v.name for v in self.variables]
+        if len(names) != len(set(names)):
+            raise ValueError("variable names must be unique")
+        return self
+
+
+class DryRunRequest(BaseModel):
+    profile_id: int
+    protocol: Literal["simple", "extended", "prepared"] = "simple"
+    variables: list[Variable] = Field(default_factory=list, max_length=50)
+    scenario: Scenario
+    confirmed_rules: list[str] = Field(default_factory=list, max_length=200)
+
+
+class Finding(BaseModel):
+    """A limit or script finding; `rule_id` is what goes into confirmed_rules."""
+
+    rule_id: str
+    level: Literal["error", "danger", "warning", "attention"]
+    message: str
+    field: str | None = None
+    scenario: str | None = None
+    line: int | None = None
+
+
+class CommandPreview(BaseModel):
+    argv: list[str]
+    env: dict[str, str]
+    command: str
+    findings: list[Finding]
+
+
+class DryRunResult(BaseModel):
+    ok: bool
+    exit_code: int | None
+    duration_ms: float
+    stdout: str
+    stderr: str
+    timed_out: bool

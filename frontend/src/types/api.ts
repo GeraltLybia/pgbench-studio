@@ -262,6 +262,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview
+         * @description The exact argv that POST /api/runs would start, without connecting to the database.
+         */
+        post: operations["preview_api_runs_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/dry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry Run
+         * @description `pgbench -c 1 -t 1 -n` for one scenario: real queries, same rules as a run.
+         */
+        post: operations["dry_run_api_runs_dry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Run
+         * @description Every check of the form is repeated here; a bypassed UI gets 422, never a run.
+         */
+        post: operations["start_run_api_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/runs/{run_id}": {
         parameters: {
             query?: never;
@@ -279,10 +339,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Scripts */
+        get: operations["list_scripts_api_scripts_get"];
+        put?: never;
+        /** Create Script */
+        post: operations["create_script_api_scripts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scripts/{script_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Script */
+        put: operations["update_script_api_scripts__script_id__put"];
+        post?: never;
+        /** Delete Script */
+        delete: operations["delete_script_api_scripts__script_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scripts/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate */
+        post: operations["validate_api_scripts_validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/builtins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Builtins */
+        get: operations["builtins_api_builtins_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BuiltinOut */
+        BuiltinOut: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "tpcb-like" | "simple-update" | "select-only";
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+        };
+        /** BuiltinScenario */
+        BuiltinScenario: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "builtin";
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "tpcb-like" | "simple-update" | "select-only";
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /** CommandPreview */
+        CommandPreview: {
+            /** Argv */
+            argv: string[];
+            /** Env */
+            env: {
+                [key: string]: string;
+            };
+            /** Command */
+            command: string;
+            /** Findings */
+            findings: components["schemas"]["Finding"][];
+        };
         /** ConnectionTestFail */
         ConnectionTestFail: {
             /**
@@ -382,6 +555,56 @@ export interface components {
             /** Password */
             password?: string | null;
         };
+        /** DiagnosticOut */
+        DiagnosticOut: {
+            /** Line */
+            line: number;
+            /** Col */
+            col: number;
+            /** End Col */
+            end_col: number;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "danger" | "warning";
+            /** Message */
+            message: string;
+            /** Rule */
+            rule: string | null;
+        };
+        /** DryRunRequest */
+        DryRunRequest: {
+            /** Profile Id */
+            profile_id: number;
+            /**
+             * Protocol
+             * @default simple
+             * @enum {string}
+             */
+            protocol: "simple" | "extended" | "prepared";
+            /** Variables */
+            variables?: components["schemas"]["Variable"][];
+            /** Scenario */
+            scenario: components["schemas"]["BuiltinScenario"] | components["schemas"]["ScriptScenario"];
+            /** Confirmed Rules */
+            confirmed_rules?: string[];
+        };
+        /** DryRunResult */
+        DryRunResult: {
+            /** Ok */
+            ok: boolean;
+            /** Exit Code */
+            exit_code: number | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Stdout */
+            stdout: string;
+            /** Stderr */
+            stderr: string;
+            /** Timed Out */
+            timed_out: boolean;
+        };
         /** ErrorDetail */
         ErrorDetail: {
             /** Code */
@@ -392,6 +615,27 @@ export interface components {
         /** ErrorResponse */
         ErrorResponse: {
             detail: components["schemas"]["ErrorDetail"];
+        };
+        /**
+         * Finding
+         * @description A limit or script finding; `rule_id` is what goes into confirmed_rules.
+         */
+        Finding: {
+            /** Rule Id */
+            rule_id: string;
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "error" | "danger" | "warning" | "attention";
+            /** Message */
+            message: string;
+            /** Field */
+            field?: string | null;
+            /** Scenario */
+            scenario?: string | null;
+            /** Line */
+            line?: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -641,6 +885,59 @@ export interface components {
          * @enum {string}
          */
         Role: "viewer" | "editor" | "admin";
+        /** RunConfig */
+        RunConfig: {
+            /** Profile Id */
+            profile_id: number;
+            /**
+             * Mode
+             * @default duration
+             * @enum {string}
+             */
+            mode: "duration" | "transactions";
+            /** Duration S */
+            duration_s?: number | null;
+            /** Transactions */
+            transactions?: number | null;
+            /**
+             * Clients
+             * @default 1
+             */
+            clients: number;
+            /**
+             * Threads
+             * @default 1
+             */
+            threads: number;
+            /**
+             * Protocol
+             * @default simple
+             * @enum {string}
+             */
+            protocol: "simple" | "extended" | "prepared";
+            /** Rate Tps */
+            rate_tps?: number | null;
+            /** Latency Limit Ms */
+            latency_limit_ms?: number | null;
+            /**
+             * Vacuum
+             * @default true
+             */
+            vacuum: boolean;
+            /** Variables */
+            variables?: components["schemas"]["Variable"][];
+            /**
+             * Detailed Log
+             * @default false
+             */
+            detailed_log: boolean;
+            /** Sampling Rate */
+            sampling_rate?: number | null;
+            /** Scenarios */
+            scenarios: (components["schemas"]["BuiltinScenario"] | components["schemas"]["ScriptScenario"])[];
+            /** Confirmed Rules */
+            confirmed_rules?: string[];
+        };
         /** RunOut */
         RunOut: {
             /** Id */
@@ -691,6 +988,46 @@ export interface components {
             /** Run Id */
             run_id: number;
         };
+        /** ScriptIn */
+        ScriptIn: {
+            /** Name */
+            name: string;
+            /** Body */
+            body: string;
+        };
+        /** ScriptOut */
+        ScriptOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Body */
+            body: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ScriptScenario */
+        ScriptScenario: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "script";
+            /** Name */
+            name: string;
+            /** Body */
+            body: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+            /** Script Id */
+            script_id?: number | null;
+        };
         /** SystemHealth */
         SystemHealth: {
             /**
@@ -710,6 +1047,10 @@ export interface components {
         SystemInfo: {
             /** App Version */
             app_version: string;
+            /** Cpu Count */
+            cpu_count: number;
+            /** Default Progress Interval S */
+            default_progress_interval_s: number;
             /** Agent Name */
             agent_name: string;
             /** Pgbench Version */
@@ -763,6 +1104,29 @@ export interface components {
             /** Disabled */
             disabled?: boolean | null;
         };
+        /** ValidateRequest */
+        ValidateRequest: {
+            /** Body */
+            body: string;
+            /** Server Major */
+            server_major?: number | null;
+            /**
+             * Variables
+             * @default []
+             */
+            variables: string[];
+        };
+        /** ValidateResponse */
+        ValidateResponse: {
+            /** Diagnostics */
+            diagnostics: components["schemas"]["DiagnosticOut"][];
+            /** Variables Used */
+            variables_used: string[];
+            /** Variables Defined */
+            variables_defined: string[];
+            /** Has Errors */
+            has_errors: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -775,6 +1139,13 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Variable */
+        Variable: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
         };
     };
     responses: never;
@@ -1687,6 +2058,213 @@ export interface operations {
             };
         };
     };
+    preview_api_runs_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandPreview"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dry_run_api_runs_dry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DryRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DryRunResult"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_run_api_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStarted"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_run_api_runs__run_id__get: {
         parameters: {
             query?: never;
@@ -1732,6 +2310,329 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scripts_api_scripts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    create_script_api_scripts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_script_api_scripts__script_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScriptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScriptOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_script_api_scripts__script_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                script_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_api_scripts_validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    builtins_api_builtins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuiltinOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

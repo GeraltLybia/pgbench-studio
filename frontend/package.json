@@ -14,9 +14,16 @@
     "gen:api": "cd ../backend && uv run studio openapi -o ../frontend/openapi.json && cd ../frontend && openapi-typescript openapi.json -o src/types/api.ts"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
     "@fontsource/golos-text": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/unbounded": "^5.3.0",
+    "@lezer/highlight": "^1.2.4",
     "@vueuse/core": "^15.0.0",
     "pinia": "^4.0.3",
     "vue": "^3.5.43",
