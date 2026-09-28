@@ -187,4 +187,6 @@ def api(settings: Settings, secret_env: str) -> Iterator[Api]:
     app = create_app(settings)
     with TestClient(app, base_url="https://testserver") as client:
         app.state.connection_checker = FakeChecker()
+        # A real CPU sample makes health «warning» on a busy CI runner; use a calm one.
+        app.state.health._sampler = lambda: (10.0, 20.0)
         yield Api(client)
