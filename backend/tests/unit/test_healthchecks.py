@@ -129,6 +129,13 @@ async def test_pgbench_check_timeout(tmp_path: Path) -> None:
     assert "не отвечает" in res.message
 
 
+def test_stuck_runs_check() -> None:
+    assert hc.check_stuck_runs(None).status == "ok"
+    assert hc.check_stuck_runs([]).status == "ok"
+    stuck = hc.check_stuck_runs([3, 5])
+    assert (stuck.status, stuck.required, stuck.value) == ("warning", False, "#3, #5")
+
+
 def test_agent_load_check() -> None:
     ok = hc.check_agent_load(40, 50, 85)
     assert (ok.status, ok.required) == ("ok", False)
@@ -171,6 +178,7 @@ async def test_service_caches_results(
         "disk",
         "pgbench",
         "agent_load",
+        "stuck_runs",
     ]
     assert all(r.status == "ok" for r in results), results
     assert service.pgbench_version == "18.1"

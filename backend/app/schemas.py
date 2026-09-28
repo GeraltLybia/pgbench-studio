@@ -398,3 +398,9 @@ class DryRunResult(BaseModel):
     stdout: str
     stderr: str
     timed_out: bool
+
+
+class ActiveRunOut(BaseModel):
+    run_id: int | None
+    kind: Literal["init", "bench"] | None
+    status: Literal["queued", "running", "finalizing"] | None
