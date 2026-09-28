@@ -240,6 +240,74 @@ class LogLineOut(BaseModel):
     line: str
 
 
+class TotalsOut(BaseModel):
+    """Counters pgbench prints for the whole run and for each script, exactly as printed."""
+
+    processed: int | None = None
+    tps: float | None = None
+    failed: int | None = None
+    failed_pct: float | None = None
+    serialization_failures: int | None = None
+    deadlock_failures: int | None = None
+    retried: int | None = None
+    retried_pct: float | None = None
+    retries: int | None = None
+    skipped: int | None = None
+    skipped_pct: float | None = None
+    latency_avg_ms: float | None = None
+    latency_stddev_ms: float | None = None
+
+
+class ScriptSummaryOut(TotalsOut):
+    index: int
+    name: str
+    scenario: str | None = None
+    weight: int | None = None
+    weight_pct: float | None = None
+    share_pct: float | None = None
+
+
+class PgbenchSummaryOut(TotalsOut):
+    pgbench_version: str | None = None
+    server_version: str | None = None
+    transaction_type: str | None = None
+    scale: int | None = None
+    query_mode: str | None = None
+    clients: int | None = None
+    threads: int | None = None
+    max_tries: int | None = None
+    duration_s: int | None = None
+    transactions_per_client: int | None = None
+    processed_target: int | None = None
+    latency_limit_ms: float | None = None
+    above_limit: int | None = None
+    above_limit_pct: float | None = None
+    lag_avg_ms: float | None = None
+    lag_max_ms: float | None = None
+    initial_connection_ms: float | None = None
+    aborted: bool = False
+    scripts: list[ScriptSummaryOut] = []
+
+
+class Percentiles(BaseModel):
+    p50: float | None = None
+    p95: float | None = None
+    p99: float | None = None
+
+
+class RunSummaryOut(BaseModel):
+    """`runs.summary_json`: pgbench's final report and how the series was obtained."""
+
+    exit_code: int | None = None
+    # pgbench printed its final report (not after SIGINT or a crash).
+    complete: bool = False
+    pgbench: PgbenchSummaryOut | None = None
+    percentiles: Percentiles | None = None
+    series_source: Literal["aggregate", "transactions", "progress"] | None = None
+    sampling_rate: float | None = None
+    parse_error: str | None = None
+
+
 class RunOut(BaseModel):
     id: int
     kind: Literal["init", "bench"]
@@ -257,6 +325,53 @@ class RunOut(BaseModel):
     config: dict[str, Any]
     progress: InitProgressOut | None
     log_tail: list[LogLineOut]
+    summary: RunSummaryOut | None
+
+
+class SeriesPointOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    t_s: int
+    tx: int
+    tps: float
+    lat_avg_ms: float | None
+    lat_min_ms: float | None
+    lat_max_ms: float | None
+    lat_std_ms: float | None
+    lag_ms: float | None
+    failed: int
+    retried: int
+
+
+class StatementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    script: str
+    idx: int
+    sql: str
+    latency_ms: float
+    failures: int | None
+
+
+class HistogramBucketOut(BaseModel):
+    upper_ms: float
+    count: int
+
+
+class RunFileOut(BaseModel):
+    name: str
+    size_bytes: int
+
+
+class ReportOut(BaseModel):
+    run: RunOut
+    series: list[SeriesPointOut]
+    statements: list[StatementOut]
+    histogram: list[HistogramBucketOut]
+    # pgbench's stdout: the final report, as printed.
+    raw_output: str
+    raw_output_truncated: bool
+    files: list[RunFileOut]
 
 
 # --- scripts and run configuration -------------------------------------------------------

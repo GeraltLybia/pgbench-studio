@@ -1,13 +1,17 @@
-"""Runs: command preview, dry run, start, status and progress."""
+"""Runs: command preview, dry run, start, status, progress, report and files."""
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 from collections import deque
 from pathlib import Path
 
 from fastapi import APIRouter, Request
+from fastapi.responses import FileResponse
+from pydantic import ValidationError
+from sqlalchemy import select
 
 from app.api.deps import DbDep, EditorDep, SettingsDep, ViewerDep, client_ip
 from app.api.errors import api_error
@@ -22,6 +26,7 @@ from app.core.command import build_bench_argv, build_dry_argv, render_command
 from app.core.healthchecks import HealthService
 from app.core.limits import agent_cpu_count
 from app.core.plan import Plan, build_plan
+from app.core.report import ReportOptions
 from app.core.runner import (
     LogLine,
     ProgressPlan,
@@ -38,13 +43,19 @@ from app.schemas import (
     DryRunRequest,
     DryRunResult,
     ErrorResponse,
+    HistogramBucketOut,
     InitProgressOut,
     LogLineOut,
+    ReportOut,
     RunConfig,
+    RunFileOut,
     RunOut,
     RunStarted,
+    RunSummaryOut,
+    SeriesPointOut,
+    StatementOut,
 )
-from app.storage.models import Run
+from app.storage.models import Run, RunHistogram, RunSeries, RunStatement, RunStatus
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +63,10 @@ router = APIRouter(prefix="/api/runs", tags=["runs"])
 
 LOG_TAIL_LINES = 200
 DRY_OUTPUT_LIMIT = 64 * 1024
+RAW_OUTPUT_LIMIT = 256 * 1024
+# Files of a run directory offered for download: logs, pgbench logs and scripts.
+_FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_GZIP = "application/gzip"
 
 _ERRORS: dict[int | str, dict[str, object]] = {
     401: {"model": ErrorResponse},
@@ -244,6 +259,13 @@ async def start_run(
                     {"kind": s.kind, "name": s.name, "weight": s.weight} for s in config.scenarios
                 ],
             },
+            report=ReportOptions(
+                detailed=config.detailed_log,
+                with_lag=config.rate_tps is not None,
+                sampling_rate=config.sampling_rate,
+                progress_interval_s=settings.pgbench.default_progress_interval_s,
+                scripts=[s.name for s in config.scenarios],
+            ),
         )
     except RunLimitError as exc:
         raise api_error(
@@ -304,20 +326,19 @@ async def cancel_run(run_id: int, request: Request, db: DbDep, user: EditorDep) 
     return RunStarted(run_id=run_id)
 
 
-@router.get(
-    "/{run_id}",
-    response_model=RunOut,
-    responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
-)
-async def get_run(
-    run_id: int, request: Request, db: DbDep, settings: SettingsDep, _user: ViewerDep
-) -> RunOut:
-    run = await db.get(Run, run_id)
-    if run is None:
-        raise api_error(404, "run_not_found", "Запуск не найден")
+def _summary(run: Run) -> RunSummaryOut | None:
+    if run.summary_json is None:
+        return None
+    try:
+        return RunSummaryOut.model_validate_json(run.summary_json)
+    except ValidationError:  # pragma: no cover - written by this code only
+        log.warning("run summary unreadable", extra={"run_id": run.id})
+        return None
 
+
+def _run_out(run: Run, request: Request, settings: Settings) -> RunOut:
     manager: RunManager = request.app.state.runs
-    active = manager.get_active(run_id)
+    active = manager.get_active(run.id)
     progress: InitProgressOut | None = None
     log_tail: list[LogLineOut]
     if active is not None:
@@ -333,7 +354,7 @@ async def get_run(
             phase=active.phase,
         )
     else:
-        run_dir = settings.storage.runs_dir / str(run_id)
+        run_dir = settings.storage.runs_dir / str(run.id)
         log_tail = _file_tail(run_dir / "stdout.log", "stdout", LOG_TAIL_LINES) + _file_tail(
             run_dir / "stderr.log", "stderr", LOG_TAIL_LINES
         )
@@ -355,4 +376,120 @@ async def get_run(
         config=json.loads(run.config_json),
         progress=progress,
         log_tail=log_tail,
+        summary=_summary(run),
+    )
+
+
+async def _get_run_or_404(db: DbDep, run_id: int) -> Run:
+    run = await db.get(Run, run_id)
+    if run is None:
+        raise api_error(404, "run_not_found", "Запуск не найден")
+    return run
+
+
+@router.get(
+    "/{run_id}",
+    response_model=RunOut,
+    responses={401: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
+)
+async def get_run(
+    run_id: int, request: Request, db: DbDep, settings: SettingsDep, _user: ViewerDep
+) -> RunOut:
+    return _run_out(await _get_run_or_404(db, run_id), request, settings)
+
+
+def run_files(run_dir: Path) -> list[RunFileOut]:
+    """Regular files of the run directory (never links or subdirectories)."""
+    if not run_dir.is_dir():
+        return []
+    files = [
+        RunFileOut(name=p.name, size_bytes=p.stat().st_size)
+        for p in run_dir.iterdir()
+        if _FILE_NAME.match(p.name) and p.is_file() and not p.is_symlink()
+    ]
+    order = {"stdout.log": 0, "stderr.log": 1}
+    return sorted(files, key=lambda f: (order.get(f.name, 2), f.name))
+
+
+def _raw_output(path: Path) -> tuple[str, bool]:
+    if not path.is_file():
+        return "", False
+    with path.open("rb") as fh:
+        data = fh.read(RAW_OUTPUT_LIMIT + 1)
+    return data[:RAW_OUTPUT_LIMIT].decode(errors="replace"), len(data) > RAW_OUTPUT_LIMIT
+
+
+@router.get(
+    "/{run_id}/report",
+    response_model=ReportOut,
+    responses={
+        401: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
+    },
+)
+async def get_report(
+    run_id: int, request: Request, db: DbDep, settings: SettingsDep, _user: ViewerDep
+) -> ReportOut:
+    """Summary, per-second series, -r rows, histogram, raw output and files of a finished run."""
+    run = await _get_run_or_404(db, run_id)
+    if RunStatus(run.status).is_active:
+        raise api_error(
+            409, "run_active", "Запуск ещё выполняется: отчёт появится после завершения"
+        )
+
+    series = await db.execute(
+        select(RunSeries).where(RunSeries.run_id == run_id).order_by(RunSeries.t_s)
+    )
+    statements = await db.execute(
+        select(RunStatement).where(RunStatement.run_id == run_id).order_by(RunStatement.id)
+    )
+    histogram = await db.execute(
+        select(RunHistogram)
+        .where(RunHistogram.run_id == run_id)
+        .order_by(RunHistogram.bucket_upper_ms)
+    )
+    run_dir = settings.storage.runs_dir / str(run_id)
+    raw, truncated = _raw_output(run_dir / "stdout.log")
+    return ReportOut(
+        run=_run_out(run, request, settings),
+        series=[SeriesPointOut.model_validate(p) for p in series.scalars()],
+        statements=[StatementOut.model_validate(s) for s in statements.scalars()],
+        histogram=[
+            HistogramBucketOut(upper_ms=h.bucket_upper_ms, count=h.count)
+            for h in histogram.scalars()
+        ],
+        raw_output=raw,
+        raw_output_truncated=truncated,
+        files=run_files(run_dir),
+    )
+
+
+@router.get(
+    "/{run_id}/files/{name}",
+    response_class=FileResponse,
+    responses={
+        200: {"content": {"text/plain": {}, _GZIP: {}}},
+        401: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+    },
+)
+async def get_run_file(
+    run_id: int, name: str, db: DbDep, settings: SettingsDep, _user: ViewerDep
+) -> FileResponse:
+    """Download stdout, stderr, pgbench logs or scripts of a run; only its own directory."""
+    await _get_run_or_404(db, run_id)
+    run_dir = settings.storage.runs_dir / str(run_id)
+    path = run_dir / name
+    if (
+        not _FILE_NAME.match(name)
+        or path.parent != run_dir
+        or path.is_symlink()
+        or not path.is_file()
+    ):
+        raise api_error(404, "file_not_found", "Файл запуска не найден")
+    return FileResponse(
+        path,
+        media_type=_GZIP if name.endswith(".gz") else "text/plain; charset=utf-8",
+        filename=f"run-{run_id}-{name}",
     )

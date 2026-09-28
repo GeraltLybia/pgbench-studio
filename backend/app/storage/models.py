@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, TypeDecorator
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, TypeDecorator
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -154,3 +154,51 @@ class Script(Base):
     name: Mapped[str] = mapped_column(String(64), unique=True)
     body: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+
+
+def _run_fk() -> Mapped[int]:
+    return mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+
+
+class RunSeries(Base):
+    """One interval of the run from the -l log (or progress lines as a fallback)."""
+
+    __tablename__ = "run_series"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = _run_fk()
+    t_s: Mapped[int] = mapped_column(Integer)
+    tx: Mapped[int] = mapped_column(Integer)
+    tps: Mapped[float] = mapped_column(Float)
+    lat_avg_ms: Mapped[float | None] = mapped_column(Float, default=None)
+    lat_min_ms: Mapped[float | None] = mapped_column(Float, default=None)
+    lat_max_ms: Mapped[float | None] = mapped_column(Float, default=None)
+    lat_std_ms: Mapped[float | None] = mapped_column(Float, default=None)
+    lag_ms: Mapped[float | None] = mapped_column(Float, default=None)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+    retried: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class RunStatement(Base):
+    """A row of the -r table."""
+
+    __tablename__ = "run_statements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = _run_fk()
+    script: Mapped[str] = mapped_column(String(128))
+    idx: Mapped[int] = mapped_column(Integer)
+    sql: Mapped[str] = mapped_column(Text)
+    latency_ms: Mapped[float] = mapped_column(Float)
+    failures: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+class RunHistogram(Base):
+    """Latency histogram bucket (detailed mode only)."""
+
+    __tablename__ = "run_histogram"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = _run_fk()
+    bucket_upper_ms: Mapped[float] = mapped_column(Float)
+    count: Mapped[int] = mapped_column(Integer)

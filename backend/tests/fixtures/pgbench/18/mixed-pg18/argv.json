@@ -1,0 +1,1 @@
+["pgbench", "-c", "4", "-j", "2", "-T", "5", "-M", "prepared", "-P", "1", "-r", "-l", "--log-prefix=pgbench_log", "--failures-detailed", "--aggregate-interval=1", "-b", "tpcb-like@1", "-f", "hot.sql@3"]

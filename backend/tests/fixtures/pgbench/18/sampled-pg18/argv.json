@@ -1,0 +1,1 @@
+["pgbench", "-c", "2", "-j", "1", "-T", "2", "-M", "simple", "-P", "1", "-r", "-l", "--log-prefix=pgbench_log", "--sampling-rate=0.1", "-b", "select-only@1"]
