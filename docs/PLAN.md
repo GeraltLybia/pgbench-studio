@@ -16,7 +16,7 @@
 
 ## Статус (обновлено 2026-09-27)
 
-### Этап 2 — реализован, ждёт приёмки (PR `stage-2`)
+### Этап 2 — закрыт (PR #4)
 
 Бэкенд: `RunConfig`; лимиты нагрузки по таблице документа (`core/limits.py`); валидатор сценариев — мета-команды pgbench 18, SQL через pglast со строкой и колонкой, подсказка опечатки ключевого слова, неизвестные переменные, синтаксис новее версии сервера (`core/validator.py`); правила опасного SQL по дереву (`core/safety.py`); библиотека сценариев, `/api/scripts/validate`, `/api/builtins` (тексты из `pgbench --show-script`); `/api/runs/preview` (точный argv, пароль замаскирован), `/api/runs/dry` (`-c 1 -t 1 -n`), `POST /api/runs` — все проверки повторяются, подтверждения пишутся в `runs.confirmed_rules_json`, pgbench стартует.
 
@@ -33,7 +33,7 @@
 | лимиты и правила на фронте и на бэкенде, `422` в обход интерфейса | одинаковые таблицы тестов на фронте и бэкенде; через API в обход UI: `\shell`, `DROP DATABASE` (даже с «подтверждением»), `-c 500` → `422`; опасное без подтверждения → `422 confirmation_required`; второй запуск → `409` |
 | сводка требует подтвердить каждое «опасное» правило, подтверждения сохраняются | «Запустить» неактивна до отметки; в `runs.confirmed_rules_json` запуска #4 — `["sql.delete_without_where@script.sql:7"]`, `started_by=admin` |
 
-Решения этапа 2, которых нет в документе (прошу подтвердить):
+Решения этапа 2, которых нет в документе (согласованы 2026-09-28):
 
 - Параметры подключения по-прежнему идут через `PG*` в окружении, поэтому в итоговой команде нет `-h -p -U` и имени базы, как на макете: под argv показывается строка окружения с `PGPASSWORD=••••••`.
 - Пробный прогон запускается для сценария в редакторе (кнопка на макете внизу редактора), а не для всей смеси.
@@ -167,9 +167,20 @@
 
 ## Этап 3. Запуск и живой мониторинг
 
-- `core/runner.py` (RunManager, `create_subprocess_exec`, `PGPASSWORD` в env, отмена SIGINT → SIGTERM → SIGKILL, восстановление после рестарта), `core/events.py` (кольцевой буфер), `metrics/agent.py` (psutil), `parsers/progress.py`.
-- `POST /api/runs` (`409` при занятом агенте), `POST /api/runs/{id}/cancel`, WebSocket `/api/runs/{id}/ws` со `snapshot`, проверкой сессии и origin.
-- Фронт: `RunView`, `RunProgress`, `KpiTile`, `LiveChart` (ECharts, LTTB), `ResourcePanel`, `LogConsole`, `useRunSocket` с переподключением.
+Бэкенд:
+
+- `core/events.py` — шина событий запуска: `seq`, `ts`, кольцевой буфер лога (2000 строк в `snapshot`), вся серия `progress` и `resources`, подписчики WebSocket.
+- `core/parsers/progress.py` — строки `progress:` pgbench 18 (`tps`, `lat`, `stddev`, `failed`, `lag`, `skipped`, `retried`); `pct` и `eta_s`: в режиме `-T` — `t / T`, в режиме `-t` — оценка по накопленным `tps × интервал` против `c × t`.
+- `metrics/agent.py` — сэмплер psutil раз в `agent.sample_interval_s`: `cpu_pct`, `ram_pct`, `ram_used_bytes`, `ram_total_bytes`; событие `warning` при CPU выше `agent.cpu_warning_percent`.
+- `core/runner.py` — события `log`/`progress`/`status` для запусков нагрузки, статус `finalizing` после выхода процесса, отмена: SIGINT → через 5 с SIGTERM → через 5 с SIGKILL, статус `cancelled`, `stopped_by`.
+- API: `POST /api/runs/{id}/cancel` (editor), WebSocket `/api/runs/{id}/ws` (сессия и роль `viewer`, только тот же origin, первое сообщение — `snapshot`), `GET /api/runs/active` — активный запуск для меню.
+- Health-проверка «Зависшие запуски» (необязательная): запуск в `running` без живого процесса.
+
+Фронтенд:
+
+- `RunView` по макету: заголовок со статусом и «Остановить», прогресс (%, прошло из всего, осталось, время окончания, параметры), плитки TPS / Latency / Транзакций / Ошибок, `ResourcePanel` (CPU и RAM агента, график), `LiveChart` (TPS и latency, ось на всю длительность `-T`, будущее закрашено с подписью «осталось N с», LTTB при > 3600 точек), `LogConsole` (фильтры, автопрокрутка, скачивание, виртуальный список).
+- `useRunSocket` — WebSocket, `snapshot` при каждом подключении, переподключение с экспоненциальной задержкой, ping раз в 30 с; `useRunStore(id)` — буфер лога 5000 строк, серии.
+- Меню: пока запуск активен, «Выполнение» ведёт на него с отметкой «идёт»; по завершении экран сам переходит к отчёту.
 
 ## Этап 4. Отчёт
 
