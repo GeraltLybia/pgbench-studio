@@ -115,7 +115,10 @@ def build_bench_argv(binary: str, options: BenchOptions) -> list[str]:
         if options.sampling_rate is not None:
             argv.append(f"--sampling-rate={_num(options.sampling_rate)}")
     else:
-        argv.append("--aggregate-interval=1")
+        # Failures reach the aggregate log only with --failures-detailed (pgbench 18).
+        # Not in detailed mode: there a failure is logged as `failed`, and with the flag
+        # pgbench 18.6 exits on a client aborted by an SQL error.
+        argv += ["--failures-detailed", "--aggregate-interval=1"]
     return argv + _scenario_args(options.scenarios)
 
 

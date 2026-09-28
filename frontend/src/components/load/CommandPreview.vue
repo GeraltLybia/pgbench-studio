@@ -41,7 +41,7 @@ watch(
 )
 
 // Flags the agent always adds; shown dimmed as on the mockup.
-const AUTO = /^(-P|-r|-l|--log-prefix=.*|--aggregate-interval=.*|--sampling-rate=.*)$/
+const AUTO = /^(-P|-r|-l|--log-prefix=.*|--failures-detailed|--aggregate-interval=.*|--sampling-rate=.*)$/
 
 function quote(arg: string): string {
   return /^[A-Za-z0-9_@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replaceAll("'", "'\\''")}'`

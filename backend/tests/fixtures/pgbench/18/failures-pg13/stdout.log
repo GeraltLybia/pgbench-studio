@@ -1,0 +1,21 @@
+pgbench (18.6 (Debian 18.6-1.pgdg13+2), server 13.23 (Debian 13.23-1.pgdg13+1))
+transaction type: serial.sql
+scaling factor: 1
+query mode: simple
+number of clients: 8
+number of threads: 2
+maximum number of tries: 1
+duration: 3 s
+number of transactions actually processed: 13391
+number of failed transactions: 67360 (83.417%)
+number of serialization failures: 67360 (83.417%)
+number of deadlock failures: 0 (0.000%)
+latency average = 0.272 ms
+latency stddev = 0.117 ms
+initial connection time = 3.402 ms
+tps = 4465.881744 (without initial connection time)
+statement latencies in milliseconds and failures:
+         0.000           0 \set bid 1
+         0.046           0 BEGIN ISOLATION LEVEL REPEATABLE READ;
+         0.059       67340 UPDATE pgbench_branches SET bbalance = bbalance + 1 WHERE bid = :bid;
+         0.169           0 END;

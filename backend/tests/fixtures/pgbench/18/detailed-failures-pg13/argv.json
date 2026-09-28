@@ -1,0 +1,1 @@
+["pgbench", "-c", "6", "-j", "2", "-t", "60", "-M", "simple", "-P", "1", "-r", "-l", "--log-prefix=pgbench_log", "-f", "serial.sql@1"]

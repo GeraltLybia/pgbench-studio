@@ -1,0 +1,17 @@
+pgbench (18.6 (Debian 18.6-1.pgdg13+2))
+transaction type: <builtin: select only>
+scaling factor: 1
+query mode: simple
+number of clients: 2
+number of threads: 1
+maximum number of tries: 1
+duration: 2 s
+number of transactions actually processed: 80360
+number of failed transactions: 0 (0.000%)
+latency average = 0.045 ms
+latency stddev = 0.005 ms
+initial connection time = 5.156 ms
+tps = 40277.350356 (without initial connection time)
+statement latencies in milliseconds and failures:
+         0.000           0 \set aid random(1, 100000 * :scale)
+         0.045           0 SELECT abalance FROM pgbench_accounts WHERE aid = :aid;
