@@ -26,6 +26,7 @@ const PATHS = {
   file: 'M14 3H6v18h12V7zM14 3v4h4',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   stop: 'M6 6h12v12H6z',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
 } as const
 
 export type IconName = keyof typeof PATHS

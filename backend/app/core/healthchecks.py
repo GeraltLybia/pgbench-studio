@@ -8,7 +8,7 @@ import shutil
 import sqlite3
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -201,6 +201,23 @@ def check_agent_load(cpu_pct: float, ram_pct: float, cpu_warning_pct: int) -> Ch
     return CheckResult("agent_load", title, False, "ok", "В норме", value, threshold)
 
 
+def check_stuck_runs(stuck: list[int] | None) -> CheckResult:
+    title = "Зависшие запуски"
+    if stuck is None:
+        return CheckResult("stuck_runs", title, False, "ok", "Не проверялось")
+    if stuck:
+        ids = ", ".join(f"#{i}" for i in stuck)
+        return CheckResult(
+            "stuck_runs",
+            title,
+            False,
+            "warning",
+            "Запуск числится выполняющимся, но процесса pgbench нет",
+            value=ids,
+        )
+    return CheckResult("stuck_runs", title, False, "ok", "Нет")
+
+
 def sample_agent() -> tuple[float, float]:
     return psutil.cpu_percent(interval=None), psutil.virtual_memory().percent
 
@@ -216,6 +233,7 @@ class HealthService:
         cache_ttl_s: float = 5.0,
         clock: Callable[[], float] = time.monotonic,
         sampler: Callable[[], tuple[float, float]] = sample_agent,
+        stuck_runs: Callable[[], Awaitable[list[int]]] | None = None,
     ) -> None:
         self.settings = settings
         self.config_file = config_file
@@ -223,6 +241,7 @@ class HealthService:
         self.cache_ttl_s = cache_ttl_s
         self._clock = clock
         self._sampler = sampler
+        self._stuck_runs = stuck_runs
         self._cached: tuple[float, datetime, list[CheckResult]] | None = None
         self._lock = asyncio.Lock()
         self.pgbench_version: str | None = None
@@ -238,12 +257,14 @@ class HealthService:
         ]
         io_results = await asyncio.gather(*(asyncio.to_thread(fn) for fn in blocking))
         cpu, ram = self._sampler()
+        stuck = await self._stuck_runs() if self._stuck_runs is not None else None
         return [
             check_config(s, self.config_file),
             check_secret_key(s.server.secret_key_env),
             *io_results,
             pgbench,
             check_agent_load(cpu, ram, s.agent.cpu_warning_percent),
+            check_stuck_runs(stuck),
         ]
 
     async def results(self) -> tuple[datetime, list[CheckResult]]:

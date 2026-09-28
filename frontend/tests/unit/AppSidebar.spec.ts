@@ -45,3 +45,22 @@ describe('AppSidebar', () => {
     expect(disabled.some((t) => t.includes('Отчёт'))).toBe(true)
   })
 })
+
+describe('AppSidebar · active run', () => {
+  it('links «Выполнение» to the running test with «идёт»', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const path = input instanceof Request ? input.url : String(input)
+        return Promise.resolve(
+          path === '/api/runs/active'
+            ? jsonResponse(200, { run_id: 5, kind: 'bench', status: 'running' })
+            : jsonResponse(500),
+        )
+      }),
+    )
+    const wrapper = mountAs('viewer')
+    await vi.waitFor(() => expect(wrapper.find('a[href="/runs/5"]').exists()).toBe(true))
+    expect(wrapper.get('a[href="/runs/5"]').text()).toContain('идёт')
+  })
+})
