@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api import auth, health, profiles, runs, system, users
+from app.api import auth, health, profiles, runs, scripts, system, users
 from app.config import Settings, load_settings
 from app.core.connection import check_connection
 from app.core.healthchecks import HealthService
@@ -113,4 +113,5 @@ def create_app(settings: Settings | None = None, config_file: Path | None = None
     app.include_router(system.router)
     app.include_router(profiles.router)
     app.include_router(runs.router)
+    app.include_router(scripts.router)
     return app

@@ -29,6 +29,8 @@
   --color-code-bg: #0F1E4D;
   --color-code-text: #E6ECFF;
   --color-code-muted: #9FB3E8;
+  /* :переменные в редакторе сценариев (по макету) */
+  --color-var: #0E8FB8;
 
   /* левая панель экрана входа (по макету) */
   --color-hero-bg: #1B3F9E;
@@ -73,6 +75,7 @@
   --color-disabled: #262C44;
 
   --color-code-bg: #080B18;
+  --color-var: #2ED0FF;
 
   --color-hero-bg: #13214F;
   --color-hero-muted: #B8C4EA;

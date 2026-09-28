@@ -1075,6 +1075,252 @@
         }
       }
     },
+    "/api/runs/preview": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Preview",
+        "description": "The exact argv that POST /api/runs would start, without connecting to the database.",
+        "operationId": "preview_api_runs_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/dry": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Dry Run",
+        "description": "`pgbench -c 1 -t 1 -n` for one scenario: real queries, same rules as a run.",
+        "operationId": "dry_run_api_runs_dry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DryRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DryRunResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Start Run",
+        "description": "Every check of the form is repeated here; a bypassed UI gets 422, never a run.",
+        "operationId": "start_run_api_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStarted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/{run_id}": {
       "get": {
         "tags": [
@@ -1136,10 +1382,491 @@
           }
         }
       }
+    },
+    "/api/scripts": {
+      "get": {
+        "tags": [
+          "scripts"
+        ],
+        "summary": "List Scripts",
+        "operationId": "list_scripts_api_scripts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScriptOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Scripts Api Scripts Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "scripts"
+        ],
+        "summary": "Create Script",
+        "operationId": "create_script_api_scripts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scripts/{script_id}": {
+      "put": {
+        "tags": [
+          "scripts"
+        ],
+        "summary": "Update Script",
+        "operationId": "update_script_api_scripts__script_id__put",
+        "parameters": [
+          {
+            "name": "script_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Script Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScriptIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "scripts"
+        ],
+        "summary": "Delete Script",
+        "operationId": "delete_script_api_scripts__script_id__delete",
+        "parameters": [
+          {
+            "name": "script_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Script Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scripts/validate": {
+      "post": {
+        "tags": [
+          "scripts"
+        ],
+        "summary": "Validate",
+        "operationId": "validate_api_scripts_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builtins": {
+      "get": {
+        "tags": [
+          "scripts"
+        ],
+        "summary": "Builtins",
+        "operationId": "builtins_api_builtins_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BuiltinOut"
+                  },
+                  "type": "array",
+                  "title": "Response Builtins Api Builtins Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "BuiltinOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "tpcb-like",
+              "simple-update",
+              "select-only"
+            ],
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "title",
+          "body"
+        ],
+        "title": "BuiltinOut"
+      },
+      "BuiltinScenario": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "builtin",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "enum": [
+              "tpcb-like",
+              "simple-update",
+              "select-only"
+            ],
+            "title": "Name"
+          },
+          "weight": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Weight",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "BuiltinScenario"
+      },
+      "CommandPreview": {
+        "properties": {
+          "argv": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Argv"
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Env"
+          },
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "argv",
+          "env",
+          "command",
+          "findings"
+        ],
+        "title": "CommandPreview"
+      },
       "ConnectionTestFail": {
         "properties": {
           "ok": {
@@ -1388,6 +2115,159 @@
         ],
         "title": "ConnectionTestRequest"
       },
+      "DiagnosticOut": {
+        "properties": {
+          "line": {
+            "type": "integer",
+            "title": "Line"
+          },
+          "col": {
+            "type": "integer",
+            "title": "Col"
+          },
+          "end_col": {
+            "type": "integer",
+            "title": "End Col"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "danger",
+              "warning"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line",
+          "col",
+          "end_col",
+          "severity",
+          "message",
+          "rule"
+        ],
+        "title": "DiagnosticOut"
+      },
+      "DryRunRequest": {
+        "properties": {
+          "profile_id": {
+            "type": "integer",
+            "title": "Profile Id"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "extended",
+              "prepared"
+            ],
+            "title": "Protocol",
+            "default": "simple"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/Variable"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Variables"
+          },
+          "scenario": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BuiltinScenario"
+              },
+              {
+                "$ref": "#/components/schemas/ScriptScenario"
+              }
+            ],
+            "title": "Scenario",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "builtin": "#/components/schemas/BuiltinScenario",
+                "script": "#/components/schemas/ScriptScenario"
+              }
+            }
+          },
+          "confirmed_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Confirmed Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "scenario"
+        ],
+        "title": "DryRunRequest"
+      },
+      "DryRunResult": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "duration_ms": {
+            "type": "number",
+            "title": "Duration Ms"
+          },
+          "stdout": {
+            "type": "string",
+            "title": "Stdout"
+          },
+          "stderr": {
+            "type": "string",
+            "title": "Stderr"
+          },
+          "timed_out": {
+            "type": "boolean",
+            "title": "Timed Out"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "exit_code",
+          "duration_ms",
+          "stdout",
+          "stderr",
+          "timed_out"
+        ],
+        "title": "DryRunResult"
+      },
       "ErrorDetail": {
         "properties": {
           "code": {
@@ -1417,6 +2297,69 @@
           "detail"
         ],
         "title": "ErrorResponse"
+      },
+      "Finding": {
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "error",
+              "danger",
+              "warning",
+              "attention"
+            ],
+            "title": "Level"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule_id",
+          "level",
+          "message"
+        ],
+        "title": "Finding",
+        "description": "A limit or script finding; `rule_id` is what goes into confirmed_rules."
       },
       "HTTPValidationError": {
         "properties": {
@@ -2054,6 +2997,163 @@
         ],
         "title": "Role"
       },
+      "RunConfig": {
+        "properties": {
+          "profile_id": {
+            "type": "integer",
+            "title": "Profile Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "duration",
+              "transactions"
+            ],
+            "title": "Mode",
+            "default": "duration"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "transactions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transactions"
+          },
+          "clients": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Clients",
+            "default": 1
+          },
+          "threads": {
+            "type": "integer",
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Threads",
+            "default": 1
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "extended",
+              "prepared"
+            ],
+            "title": "Protocol",
+            "default": "simple"
+          },
+          "rate_tps": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Tps"
+          },
+          "latency_limit_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Limit Ms"
+          },
+          "vacuum": {
+            "type": "boolean",
+            "title": "Vacuum",
+            "default": true
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/Variable"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Variables"
+          },
+          "detailed_log": {
+            "type": "boolean",
+            "title": "Detailed Log",
+            "default": false
+          },
+          "sampling_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Rate"
+          },
+          "scenarios": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/BuiltinScenario"
+                },
+                {
+                  "$ref": "#/components/schemas/ScriptScenario"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "builtin": "#/components/schemas/BuiltinScenario",
+                  "script": "#/components/schemas/ScriptScenario"
+                }
+              }
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Scenarios"
+          },
+          "confirmed_rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Confirmed Rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "scenarios"
+        ],
+        "title": "RunConfig"
+      },
       "RunOut": {
         "properties": {
           "id": {
@@ -2239,6 +3339,99 @@
         ],
         "title": "RunStarted"
       },
+      "ScriptIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "title": "Name"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 65536,
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "body"
+        ],
+        "title": "ScriptIn"
+      },
+      "ScriptOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "body",
+          "updated_at"
+        ],
+        "title": "ScriptOut"
+      },
+      "ScriptScenario": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "script",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+            "title": "Name"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 65536,
+            "title": "Body"
+          },
+          "weight": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Weight",
+            "default": 1
+          },
+          "script_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Script Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "body"
+        ],
+        "title": "ScriptScenario"
+      },
       "SystemHealth": {
         "properties": {
           "status": {
@@ -2277,6 +3470,14 @@
             "type": "string",
             "title": "App Version"
           },
+          "cpu_count": {
+            "type": "integer",
+            "title": "Cpu Count"
+          },
+          "default_progress_interval_s": {
+            "type": "integer",
+            "title": "Default Progress Interval S"
+          },
           "agent_name": {
             "type": "string",
             "title": "Agent Name"
@@ -2311,6 +3512,8 @@
         "type": "object",
         "required": [
           "app_version",
+          "cpu_count",
+          "default_progress_interval_s",
           "agent_name",
           "pgbench_version",
           "dev_mode",
@@ -2458,6 +3661,79 @@
         "type": "object",
         "title": "UserUpdate"
       },
+      "ValidateRequest": {
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 65536,
+            "title": "Body"
+          },
+          "server_major": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 99.0,
+                "minimum": 9.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Major"
+          },
+          "variables": {
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$"
+            },
+            "type": "array",
+            "title": "Variables",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "title": "ValidateRequest"
+      },
+      "ValidateResponse": {
+        "properties": {
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticOut"
+            },
+            "type": "array",
+            "title": "Diagnostics"
+          },
+          "variables_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variables Used"
+          },
+          "variables_defined": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Variables Defined"
+          },
+          "has_errors": {
+            "type": "boolean",
+            "title": "Has Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "diagnostics",
+          "variables_used",
+          "variables_defined",
+          "has_errors"
+        ],
+        "title": "ValidateResponse"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -2497,6 +3773,27 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "Variable": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$",
+            "title": "Name"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^[^\\x00]*$",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "Variable"
       }
     }
   }
