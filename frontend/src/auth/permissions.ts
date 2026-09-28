@@ -11,6 +11,7 @@ export type Action =
   | 'scripts.edit'
   | 'runs.start'
   | 'runs.delete'
+  | 'runs.note'
   | 'users.manage'
   | 'password.change'
 
@@ -25,6 +26,7 @@ const REQUIRED: Record<Action, Role> = {
   'scripts.edit': 'editor',
   'runs.start': 'editor',
   'runs.delete': 'editor',
+  'runs.note': 'editor',
   'users.manage': 'admin',
   'password.change': 'viewer',
 }

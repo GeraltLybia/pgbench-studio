@@ -307,7 +307,44 @@ export const useLoadConfigStore = defineStore('loadConfig', () => {
     )
   }
 
-  /** Restore parameters and scenarios of a run (used by «Повторить» later too). */
+  /**
+   * «Повторить»: the parameters, variables and scenario texts a run was started with
+   * (`run.config.run_config`), exactly as stored, even if library scripts changed since.
+   */
+  function applyRun(config: RunConfig): void {
+    const text = (v: number | null | undefined) => (v == null ? '' : String(v))
+    params.value = {
+      ...defaultParams(),
+      mode: config.mode ?? 'duration',
+      duration_s: text(config.duration_s) || defaultParams().duration_s,
+      transactions: text(config.transactions) || defaultParams().transactions,
+      clients: text(config.clients),
+      threads: text(config.threads),
+      protocol: config.protocol ?? 'simple',
+      rate_tps: text(config.rate_tps),
+      latency_limit_ms: text(config.latency_limit_ms),
+      vacuum: config.vacuum ?? true,
+      detailed_log: config.detailed_log ?? false,
+      sampling_rate: text(config.sampling_rate),
+    }
+    variables.value = (config.variables ?? []).map((v) => ({ name: v.name, value: v.value }))
+    scenarios.value = config.scenarios.map((sc): ScenarioDraft =>
+      sc.kind === 'builtin'
+        ? { uid: newUid(), kind: 'builtin', name: sc.name, weight: sc.weight ?? 1 }
+        : {
+            uid: newUid(),
+            kind: 'script',
+            name: sc.name,
+            body: sc.body,
+            weight: sc.weight ?? 1,
+            scriptId: sc.script_id ?? null,
+            savedBody: sc.script_id != null ? sc.body : null,
+          },
+    )
+    selected.value = scenarios.value.find((sc) => sc.kind === 'script')?.uid ?? null
+    checks.value = {}
+  }
+
   function reset(): void {
     const fresh = emptyDraft()
     params.value = fresh.params
@@ -349,6 +386,7 @@ export const useLoadConfigStore = defineStore('loadConfig', () => {
     setWeight,
     setCheck,
     saveToLibrary,
+    applyRun,
     reset,
   }
 })

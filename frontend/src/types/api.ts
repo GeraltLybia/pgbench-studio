@@ -309,7 +309,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Runs
+         * @description History of benchmarks (not `pgbench -i`), newest first.
+         */
+        get: operations["list_runs_api_runs_get"];
         put?: never;
         /**
          * Start Run
@@ -334,6 +338,26 @@ export interface paths {
          * @description The run in progress on this agent, for the «Выполнение · идёт» menu item.
          */
         get: operations["active_run_api_runs_active_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Runs
+         * @description Two finished runs, series from 0 s each, metric differences in % of b and param diffs.
+         */
+        get: operations["compare_runs_api_runs_compare_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -373,10 +397,18 @@ export interface paths {
         get: operations["get_run_api_runs__run_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Run
+         * @description Remove a finished run with its series and files.
+         */
+        delete: operations["delete_run_api_runs__run_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Run Note
+         * @description The run's note, e.g. what changed on the server between two runs.
+         */
+        patch: operations["update_run_note_api_runs__run_id__patch"];
         trace?: never;
     };
     "/api/runs/{run_id}/report": {
@@ -544,6 +576,15 @@ export interface components {
             command: string;
             /** Findings */
             findings: components["schemas"]["Finding"][];
+        };
+        /** CompareOut */
+        CompareOut: {
+            a: components["schemas"]["ReportOut"];
+            b: components["schemas"]["ReportOut"];
+            /** Metrics */
+            metrics: components["schemas"]["MetricDiff"][];
+            /** Params */
+            params: components["schemas"]["ParamDiff"][];
         };
         /** ConnectionTestFail */
         ConnectionTestFail: {
@@ -848,6 +889,35 @@ export interface components {
             /** Must Change Password */
             must_change_password: boolean;
         };
+        /** MetricDiff */
+        MetricDiff: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** A */
+            a: number | null;
+            /** B */
+            b: number | null;
+            /** Diff Pct */
+            diff_pct: number | null;
+            /**
+             * Better
+             * @enum {string}
+             */
+            better: "higher" | "lower";
+        };
+        /** ParamDiff */
+        ParamDiff: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** A */
+            a: string | null;
+            /** B */
+            b: string | null;
+        };
         /** PasswordChangeRequest */
         PasswordChangeRequest: {
             /** Current Password */
@@ -1067,12 +1137,25 @@ export interface components {
             statements: components["schemas"]["StatementOut"][];
             /** Histogram */
             histogram: components["schemas"]["HistogramBucketOut"][];
+            /** Resources */
+            resources: components["schemas"]["ResourcePointOut"][];
             /** Raw Output */
             raw_output: string;
             /** Raw Output Truncated */
             raw_output_truncated: boolean;
             /** Files */
             files: components["schemas"]["RunFileOut"][];
+        };
+        /** ResourcePointOut */
+        ResourcePointOut: {
+            /** T S */
+            t_s: number;
+            /** Cpu Pct */
+            cpu_pct: number;
+            /** Ram Pct */
+            ram_pct: number;
+            /** Ram Used Bytes */
+            ram_used_bytes: number;
         };
         /**
          * Role
@@ -1139,6 +1222,65 @@ export interface components {
             /** Size Bytes */
             size_bytes: number;
         };
+        /**
+         * RunListItem
+         * @description A benchmark in the history table.
+         */
+        RunListItem: {
+            /** Id */
+            id: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "finalizing" | "completed" | "failed" | "cancelled";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Started By */
+            started_by: string | null;
+            /** Stopped By */
+            stopped_by: string | null;
+            /** Profile Id */
+            profile_id: number | null;
+            /** Profile Name */
+            profile_name: string | null;
+            /** Scenarios */
+            scenarios: string[];
+            /** Mode */
+            mode: ("duration" | "transactions") | null;
+            /** Duration S */
+            duration_s: number | null;
+            /** Transactions */
+            transactions: number | null;
+            /** Clients */
+            clients: number | null;
+            /** Threads */
+            threads: number | null;
+            /** Tps */
+            tps: number | null;
+            /** Latency Avg Ms */
+            latency_avg_ms: number | null;
+            /** Failed */
+            failed: number | null;
+            /** Error */
+            error: string | null;
+            /** Note */
+            note: string | null;
+            /** Sparkline */
+            sparkline: number[];
+        };
+        /** RunNoteIn */
+        RunNoteIn: {
+            /** Note */
+            note?: string | null;
+        };
         /** RunOut */
         RunOut: {
             /** Id */
@@ -1184,12 +1326,26 @@ export interface components {
             /** Log Tail */
             log_tail: components["schemas"]["LogLineOut"][];
             summary: components["schemas"]["RunSummaryOut"] | null;
+            /** Note */
+            note: string | null;
+        };
+        /** RunPage */
+        RunPage: {
+            /** Items */
+            items: components["schemas"]["RunListItem"][];
+            /** Total */
+            total: number;
         };
         /** RunStarted */
         RunStarted: {
             /** Run Id */
             run_id: number;
         };
+        /**
+         * RunStatus
+         * @enum {string}
+         */
+        RunStatus: "queued" | "running" | "finalizing" | "completed" | "failed" | "cancelled";
         /**
          * RunSummaryOut
          * @description `runs.summary_json`: pgbench's final report and how the series was obtained.
@@ -2487,6 +2643,70 @@ export interface operations {
             };
         };
     };
+    list_runs_api_runs_get: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                profile_id?: number | null;
+                /** @description one or more statuses */
+                status?: components["schemas"]["RunStatus"][] | null;
+                days?: number | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     start_run_api_runs_post: {
         parameters: {
             query?: never;
@@ -2621,6 +2841,74 @@ export interface operations {
             };
         };
     };
+    compare_runs_api_runs_compare_get: {
+        parameters: {
+            query: {
+                a: number;
+                b: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     cancel_run_api_runs__run_id__cancel_post: {
         parameters: {
             query?: never;
@@ -2733,6 +3021,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_run_api_runs__run_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    update_run_note_api_runs__run_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
