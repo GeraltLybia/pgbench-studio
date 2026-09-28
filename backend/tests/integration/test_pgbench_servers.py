@@ -1,21 +1,31 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import socket
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from app.config import LimitsSettings
 from app.core.command import InitOptions, build_bench_argv, build_dry_argv
 from app.core.connection import ConnFailure, ServerFacts, check_connection
 from app.core.plan import Plan, build_plan
+from app.core.report import ReportOptions
 from app.core.runner import ProgressPlan, RunManager, child_env, run_dry
 from app.core.validator import validate_script
 from app.schemas import RunConfig
 from app.storage.db import create_engine_for, make_sessionmaker, run_migrations
-from app.storage.models import Profile, Run, RunStatus
+from app.storage.models import (
+    Profile,
+    Run,
+    RunHistogram,
+    RunSeries,
+    RunStatement,
+    RunStatus,
+)
 from tests.integration.conftest import Server
 
 pytestmark = pytest.mark.integration
@@ -328,3 +338,95 @@ async def test_live_progress_and_cancel(server: Server, runs: RunManager, pgbenc
         run = await db.get(Run, run_id)
         assert run is not None
         assert (run.status, run.stopped_by) == (RunStatus.cancelled, "it")
+
+
+# --- stage 4: report from real pgbench output ----------------------------------------------
+
+SERIAL = (
+    "\\set bid 1\n"
+    "BEGIN ISOLATION LEVEL REPEATABLE READ;\n"
+    "UPDATE pgbench_branches SET bbalance = bbalance + 1 WHERE bid = :bid;\n"
+    "END;\n"
+)
+
+
+async def _bench(runs: RunManager, server: Server, plan: Plan, options: ReportOptions) -> Run:
+    run_id = await runs.start_bench(
+        profile_id=1,
+        params=server.params(),
+        argv=build_bench_argv(runs._binary, plan.options),
+        files=plan.files,
+        config={},
+        confirmed_rules=[],
+        started_by="it",
+        pgbench_version="18",
+        server_version=None,
+        report=options,
+    )
+    await asyncio.wait_for(runs.wait(run_id), 120)
+    async with runs._sessionmaker() as db:
+        run = await db.get(Run, run_id)
+    assert run is not None
+    return run
+
+
+async def _rows(runs: RunManager, model: type, run_id: int) -> list:  # type: ignore[type-arg]
+    async with runs._sessionmaker() as db:
+        result = await db.execute(select(model).where(model.run_id == run_id))
+        return list(result.scalars())
+
+
+async def test_report_with_threads_and_failures(server: Server, runs: RunManager) -> None:
+    await _init(server, runs)
+    plan = _plan(
+        duration_s=4,
+        clients=6,
+        threads=2,
+        variables=[],
+        scenarios=[
+            {"kind": "script", "name": "hot.sql", "body": HOT, "weight": 1},
+            {"kind": "script", "name": "serial.sql", "body": SERIAL, "weight": 1},
+        ],
+    )
+    run = await _bench(runs, server, plan, ReportOptions(scripts=["hot.sql", "serial.sql"]))
+    assert run.status == RunStatus.completed, run.error
+    summary = json.loads(run.summary_json or "{}")
+    pgbench = summary["pgbench"]
+    stdout = (runs._runs_dir / str(run.id) / "stdout.log").read_text()
+    assert summary["complete"] and summary["series_source"] == "aggregate"
+    assert f"tps = {pgbench['tps']:f} (without initial connection time)" in stdout
+    assert pgbench["threads"] == 2 and pgbench["failed"] > 0
+    assert pgbench["failed"] == pgbench["serialization_failures"]
+    assert [s["scenario"] for s in pgbench["scripts"]] == ["hot.sql", "serial.sql"]
+
+    series = await _rows(runs, RunSeries, run.id)
+    assert len(series) >= 3
+    assert sum(p.failed for p in series) > 0  # --failures-detailed reaches the log
+    assert 0 <= pgbench["processed"] - sum(p.tx for p in series) <= max(p.tx for p in series)
+    statements = await _rows(runs, RunStatement, run.id)
+    assert {st.script for st in statements} == {"hot.sql", "serial.sql"}
+    assert any(st.failures for st in statements if st.script == "serial.sql")
+
+
+async def test_report_detailed_mode(server: Server, runs: RunManager) -> None:
+    await _init(server, runs)
+    plan = _plan(
+        mode="transactions",
+        transactions=200,
+        duration_s=None,
+        clients=2,
+        threads=2,
+        detailed_log=True,
+        variables=[],
+        scenarios=[{"kind": "builtin", "name": "select-only"}],
+    )
+    run = await _bench(runs, server, plan, ReportOptions(detailed=True, scripts=["select-only"]))
+    assert run.status == RunStatus.completed, run.error
+    summary = json.loads(run.summary_json or "{}")
+    assert summary["series_source"] == "transactions"
+    p = summary["percentiles"]
+    assert 0 < p["p50"] <= p["p95"] <= p["p99"]
+    histogram = await _rows(runs, RunHistogram, run.id)
+    assert sum(h.count for h in histogram) == summary["pgbench"]["processed"] == 400
+    logs = [f.name for f in (runs._runs_dir / str(run.id)).glob("pgbench_log.*")]
+    assert len(logs) == 2 and all(name.endswith(".gz") for name in logs)

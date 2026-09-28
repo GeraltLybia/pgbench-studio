@@ -1,5 +1,5 @@
 /** Only the ECharts parts the app uses (keeps the bundle small). */
-import { LineChart } from 'echarts/charts'
+import { BarChart, LineChart } from 'echarts/charts'
 import {
   GridComponent,
   MarkAreaComponent,
@@ -9,4 +9,4 @@ import {
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 
-use([LineChart, GridComponent, TooltipComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer])
+use([LineChart, BarChart, GridComponent, TooltipComponent, MarkAreaComponent, MarkLineComponent, CanvasRenderer])

@@ -16,6 +16,8 @@ from app.main import create_app
 from app.storage import repo
 from app.storage.models import Role, User
 
+FIXTURES = Path(__file__).parent / "fixtures" / "pgbench" / "18"
+
 # Fake pgbench: --version, and `-i` output modelled on pgbench 18. Behaviour is selected by
 # PGDATABASE because the runner passes only PATH, LC_ALL, HOME and PG* to the child.
 FAKE_PGBENCH = r"""#!/bin/sh
@@ -42,6 +44,13 @@ if [ "$1" != "-i" ]; then
       exit 0 ;;
     stubborn) trap '' INT TERM; while true; do sleep 0.1; done ;;
     sigint) trap 'echo interrupted >&2; exit 130' INT; while true; do sleep 0.1; done ;;
+    fixture-*)
+      # Replays a real pgbench 18 run directory from tests/fixtures/pgbench/18.
+      src="@FIXTURES@/${PGDATABASE#fixture-}"
+      cat "$src/stderr.log" >&2
+      cat "$src/stdout.log"
+      for f in "$src"/pgbench_log.*; do cp "$f" .; done
+      exit "$(cat "$src/exit_code")" ;;
   esac
   echo 'progress: 1.0 s, 5000.0 tps, lat 1.600 ms stddev 0.400, 0 failed' >&2
   echo 'progress: 2.0 s, 6000.0 tps, lat 1.500 ms stddev 0.300, 1 failed, lag 0.100 ms, 2 skipped' >&2
@@ -71,7 +80,7 @@ PASSWORD = "user-password"
 @pytest.fixture
 def fake_pgbench(tmp_path: Path) -> Path:
     script = tmp_path / "pgbench"
-    script.write_text(FAKE_PGBENCH)
+    script.write_text(FAKE_PGBENCH.replace("@FIXTURES@", str(FIXTURES)))
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return script
 

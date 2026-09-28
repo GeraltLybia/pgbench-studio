@@ -1,0 +1,1 @@
+["pgbench", "-c", "2", "-j", "2", "-T", "3", "-M", "simple", "-R", "200", "--latency-limit=5", "-P", "1", "-r", "-l", "--log-prefix=pgbench_log", "--failures-detailed", "--aggregate-interval=1", "-b", "select-only@1"]

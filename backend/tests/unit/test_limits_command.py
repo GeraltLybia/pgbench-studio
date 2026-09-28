@@ -141,6 +141,7 @@ def test_bench_argv_matches_the_mockup() -> None:
         "-r",
         "-l",
         "--log-prefix=pgbench_log",
+        "--failures-detailed",
         "--aggregate-interval=1",
         "-b",
         "tpcb-like@1",
@@ -197,7 +198,10 @@ def test_bench_argv_all_options() -> None:
 def test_detailed_log_without_sampling_has_no_aggregation() -> None:
     options = BenchOptions(**{**MOCKUP.__dict__, "detailed_log": True})
     argv = build_bench_argv("pgbench", options)
-    assert not any(a.startswith(("--aggregate-interval", "--sampling-rate")) for a in argv)
+    assert not any(
+        a.startswith(("--aggregate-interval", "--sampling-rate", "--failures-detailed"))
+        for a in argv
+    )
 
 
 def test_dry_argv() -> None:

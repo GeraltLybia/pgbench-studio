@@ -1,0 +1,1 @@
+["pgbench", "-c", "4", "-j", "2", "-T", "3", "-M", "simple", "-P", "1", "-r", "-l", "--log-prefix=pgbench_log", "-f", "abort.sql@1"]

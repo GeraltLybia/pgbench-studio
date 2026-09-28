@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.command import InitOptions, build_init_argv
@@ -36,8 +36,17 @@ from app.core.parsers.progress import (
     parse_init_phase,
     parse_init_progress,
 )
+from app.core.report import ReportOptions, RunReport, abort_reason, build_report
 from app.metrics.agent import AgentSample, CpuWarning, run_sampler, sample
-from app.storage.models import Run, RunKind, RunStatus, utcnow
+from app.storage.models import (
+    Run,
+    RunHistogram,
+    RunKind,
+    RunSeries,
+    RunStatement,
+    RunStatus,
+    utcnow,
+)
 
 log = logging.getLogger(__name__)
 
@@ -95,6 +104,7 @@ class ActiveRun:
     cancelled_by: str | None = None
     started_monotonic: float = 0.0
     sampler: asyncio.Task[None] | None = None
+    report_options: ReportOptions | None = None
 
 
 def child_env(params: ConnParams, run_dir: Path) -> dict[str, str]:
@@ -274,6 +284,7 @@ class RunManager:
         server_version: str | None,
         plan: ProgressPlan | None = None,
         summary: dict[str, Any] | None = None,
+        report: ReportOptions | None = None,
     ) -> int:
         return await self._start(
             kind=RunKind.bench,
@@ -284,6 +295,7 @@ class RunManager:
             config=config,
             summary={"kind": "bench", "argv": argv, **(summary or {})},
             plan=plan,
+            report=report or ReportOptions(),
             confirmed_rules=confirmed_rules,
             started_by=started_by,
             pgbench_version=pgbench_version,
@@ -305,6 +317,7 @@ class RunManager:
         started_by: str,
         pgbench_version: str | None,
         server_version: str | None,
+        report: ReportOptions | None = None,
     ) -> int:
         async with self._lock:
             if len(self._active) >= self._max_parallel:
@@ -328,7 +341,7 @@ class RunManager:
                 db.add(run)
                 await db.commit()
                 run_id = run.id
-            active = ActiveRun(run_id=run_id, kind=kind)
+            active = ActiveRun(run_id=run_id, kind=kind, report_options=report)
             if plan is not None:
                 active.estimator = ProgressEstimator(
                     plan.mode, plan.duration_s, plan.clients, plan.transactions
@@ -440,22 +453,73 @@ class RunManager:
 
         await self._update(active.run_id, status=RunStatus.finalizing)
         self._status(active, RunStatus.finalizing, exit_code=code)
-        # Stage 4 parses the summary, -r and -l logs here.
+        summary: dict[str, object] = {"exit_code": code}
+        if active.report_options is not None:
+            summary |= await self._build_report(active.run_id, run_dir, active.report_options)
 
         if active.cancelled_by is not None:
-            await self._finish(
-                active, RunStatus.cancelled, "Остановлен пользователем", {"exit_code": code}
-            )
+            await self._finish(active, RunStatus.cancelled, "Остановлен пользователем", summary)
         elif code == 0:
-            await self._finish(active, RunStatus.completed, None, {"exit_code": code})
+            await self._finish(active, RunStatus.completed, None, summary)
         else:
-            last = next((e.line for e in reversed(active.log) if e.stream == "stderr"), None)
+            stderr = [e.line for e in active.log if e.stream == "stderr"]
+            reason = abort_reason(stderr) or (stderr[-1] if stderr else None)
             await self._finish(
-                active,
-                RunStatus.failed,
-                last or f"pgbench завершился с кодом {code}",
-                {"exit_code": code},
+                active, RunStatus.failed, reason or f"pgbench завершился с кодом {code}", summary
             )
+
+    async def _build_report(
+        self, run_id: int, run_dir: Path, options: ReportOptions
+    ) -> dict[str, object]:
+        """Parse the run directory and store series, -r rows and the histogram."""
+        report: RunReport = await asyncio.to_thread(build_report, run_dir, options)
+        async with self._sessionmaker() as db:
+            if report.series:
+                await db.execute(
+                    insert(RunSeries),
+                    [
+                        {
+                            "run_id": run_id,
+                            "t_s": p.t_s,
+                            "tx": p.tx,
+                            "tps": p.tps,
+                            "lat_avg_ms": p.lat_avg_ms,
+                            "lat_min_ms": p.lat_min_ms,
+                            "lat_max_ms": p.lat_max_ms,
+                            "lat_std_ms": p.lat_std_ms,
+                            "lag_ms": p.lag_ms,
+                            "failed": p.failed,
+                            "retried": p.retried,
+                        }
+                        for p in report.series
+                    ],
+                )
+            statements = report.statements(options.scripts)
+            if statements:
+                await db.execute(
+                    insert(RunStatement),
+                    [
+                        {
+                            "run_id": run_id,
+                            "script": name[:128],
+                            "idx": st.idx,
+                            "sql": st.command,
+                            "latency_ms": st.latency_ms,
+                            "failures": st.failures,
+                        }
+                        for name, st in statements
+                    ],
+                )
+            if report.histogram:
+                await db.execute(
+                    insert(RunHistogram),
+                    [
+                        {"run_id": run_id, "bucket_upper_ms": upper, "count": count}
+                        for upper, count in report.histogram
+                    ],
+                )
+            await db.commit()
+        return report.summary_json(options)
 
     async def _pump(
         self, active: ActiveRun, stream: Stream, reader: asyncio.StreamReader, sink: IO[str]
