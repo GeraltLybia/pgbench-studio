@@ -134,7 +134,9 @@ watch(status, (value) => {
       <strong>{{ status === 'failed' ? 'Тест завершился с ошибкой' : 'Тест остановлен' }}</strong>
       <span v-if="run.status?.stopped_by"> пользователем {{ run.status.stopped_by }}</span>
       <div v-if="run.status?.error && status === 'failed'" class="mono err">{{ run.status.error }}</div>
-      <RouterLink v-if="info?.kind === 'bench'" :to="`/runs/${runId}/report`">Открыть отчёт</RouterLink>
+      <div v-if="info?.kind === 'bench'">
+        <RouterLink :to="`/runs/${runId}/report`">Открыть отчёт</RouterLink>
+      </div>
     </div>
   </div>
 

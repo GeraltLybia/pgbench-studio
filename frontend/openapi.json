@@ -1528,6 +1528,148 @@
         }
       }
     },
+    "/api/runs/{run_id}/report": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Report",
+        "description": "Summary, per-second series, -r rows, histogram, raw output and files of a finished run.",
+        "operationId": "get_report_api_runs__run_id__report_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/files/{name}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Run File",
+        "description": "Download stdout, stderr, pgbench logs or scripts of a run; only its own directory.",
+        "operationId": "get_run_file_api_runs__run_id__files__name__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {},
+              "application/gzip": {}
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scripts": {
       "get": {
         "tags": [
@@ -2634,6 +2776,24 @@
         ],
         "title": "HealthCheckOut"
       },
+      "HistogramBucketOut": {
+        "properties": {
+          "upper_ms": {
+            "type": "number",
+            "title": "Upper Ms"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "upper_ms",
+          "count"
+        ],
+        "title": "HistogramBucketOut"
+      },
       "InitProgressOut": {
         "properties": {
           "done": {
@@ -2895,6 +3055,394 @@
           "new_password"
         ],
         "title": "PasswordChangeRequest"
+      },
+      "Percentiles": {
+        "properties": {
+          "p50": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50"
+          },
+          "p95": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95"
+          },
+          "p99": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P99"
+          }
+        },
+        "type": "object",
+        "title": "Percentiles"
+      },
+      "PgbenchSummaryOut": {
+        "properties": {
+          "processed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed"
+          },
+          "tps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tps"
+          },
+          "failed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed"
+          },
+          "failed_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Pct"
+          },
+          "serialization_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serialization Failures"
+          },
+          "deadlock_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadlock Failures"
+          },
+          "retried": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retried"
+          },
+          "retried_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retried Pct"
+          },
+          "retries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retries"
+          },
+          "skipped": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped"
+          },
+          "skipped_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Pct"
+          },
+          "latency_avg_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Avg Ms"
+          },
+          "latency_stddev_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Stddev Ms"
+          },
+          "pgbench_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pgbench Version"
+          },
+          "server_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Version"
+          },
+          "transaction_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Type"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale"
+          },
+          "query_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Mode"
+          },
+          "clients": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clients"
+          },
+          "threads": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threads"
+          },
+          "max_tries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tries"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "transactions_per_client": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transactions Per Client"
+          },
+          "processed_target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed Target"
+          },
+          "latency_limit_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Limit Ms"
+          },
+          "above_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Above Limit"
+          },
+          "above_limit_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Above Limit Pct"
+          },
+          "lag_avg_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lag Avg Ms"
+          },
+          "lag_max_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lag Max Ms"
+          },
+          "initial_connection_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Connection Ms"
+          },
+          "aborted": {
+            "type": "boolean",
+            "title": "Aborted",
+            "default": false
+          },
+          "scripts": {
+            "items": {
+              "$ref": "#/components/schemas/ScriptSummaryOut"
+            },
+            "type": "array",
+            "title": "Scripts",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "PgbenchSummaryOut"
       },
       "ProfileCreate": {
         "properties": {
@@ -3186,6 +3734,60 @@
         ],
         "title": "Readiness"
       },
+      "ReportOut": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RunOut"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPointOut"
+            },
+            "type": "array",
+            "title": "Series"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/StatementOut"
+            },
+            "type": "array",
+            "title": "Statements"
+          },
+          "histogram": {
+            "items": {
+              "$ref": "#/components/schemas/HistogramBucketOut"
+            },
+            "type": "array",
+            "title": "Histogram"
+          },
+          "raw_output": {
+            "type": "string",
+            "title": "Raw Output"
+          },
+          "raw_output_truncated": {
+            "type": "boolean",
+            "title": "Raw Output Truncated"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/RunFileOut"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run",
+          "series",
+          "statements",
+          "histogram",
+          "raw_output",
+          "raw_output_truncated",
+          "files"
+        ],
+        "title": "ReportOut"
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -3352,6 +3954,24 @@
         ],
         "title": "RunConfig"
       },
+      "RunFileOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "size_bytes"
+        ],
+        "title": "RunFileOut"
+      },
       "RunOut": {
         "properties": {
           "id": {
@@ -3501,6 +4121,16 @@
             },
             "type": "array",
             "title": "Log Tail"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunSummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3520,7 +4150,8 @@
           "argv",
           "config",
           "progress",
-          "log_tail"
+          "log_tail",
+          "summary"
         ],
         "title": "RunOut"
       },
@@ -3536,6 +4167,87 @@
           "run_id"
         ],
         "title": "RunStarted"
+      },
+      "RunSummaryOut": {
+        "properties": {
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "default": false
+          },
+          "pgbench": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PgbenchSummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "percentiles": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Percentiles"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "series_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "aggregate",
+                  "transactions",
+                  "progress"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Source"
+          },
+          "sampling_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sampling Rate"
+          },
+          "parse_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Error"
+          }
+        },
+        "type": "object",
+        "title": "RunSummaryOut",
+        "description": "`runs.summary_json`: pgbench's final report and how the series was obtained."
       },
       "ScriptIn": {
         "properties": {
@@ -3629,6 +4341,344 @@
           "body"
         ],
         "title": "ScriptScenario"
+      },
+      "ScriptSummaryOut": {
+        "properties": {
+          "processed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processed"
+          },
+          "tps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tps"
+          },
+          "failed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed"
+          },
+          "failed_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Pct"
+          },
+          "serialization_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serialization Failures"
+          },
+          "deadlock_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadlock Failures"
+          },
+          "retried": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retried"
+          },
+          "retried_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retried Pct"
+          },
+          "retries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retries"
+          },
+          "skipped": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped"
+          },
+          "skipped_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skipped Pct"
+          },
+          "latency_avg_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Avg Ms"
+          },
+          "latency_stddev_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Stddev Ms"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          },
+          "weight_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Pct"
+          },
+          "share_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "name"
+        ],
+        "title": "ScriptSummaryOut"
+      },
+      "SeriesPointOut": {
+        "properties": {
+          "t_s": {
+            "type": "integer",
+            "title": "T S"
+          },
+          "tx": {
+            "type": "integer",
+            "title": "Tx"
+          },
+          "tps": {
+            "type": "number",
+            "title": "Tps"
+          },
+          "lat_avg_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat Avg Ms"
+          },
+          "lat_min_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat Min Ms"
+          },
+          "lat_max_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat Max Ms"
+          },
+          "lat_std_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat Std Ms"
+          },
+          "lag_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lag Ms"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "retried": {
+            "type": "integer",
+            "title": "Retried"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t_s",
+          "tx",
+          "tps",
+          "lat_avg_ms",
+          "lat_min_ms",
+          "lat_max_ms",
+          "lat_std_ms",
+          "lag_ms",
+          "failed",
+          "retried"
+        ],
+        "title": "SeriesPointOut"
+      },
+      "StatementOut": {
+        "properties": {
+          "script": {
+            "type": "string",
+            "title": "Script"
+          },
+          "idx": {
+            "type": "integer",
+            "title": "Idx"
+          },
+          "sql": {
+            "type": "string",
+            "title": "Sql"
+          },
+          "latency_ms": {
+            "type": "number",
+            "title": "Latency Ms"
+          },
+          "failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "script",
+          "idx",
+          "sql",
+          "latency_ms",
+          "failures"
+        ],
+        "title": "StatementOut"
       },
       "SystemHealth": {
         "properties": {

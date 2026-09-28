@@ -379,6 +379,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Report
+         * @description Summary, per-second series, -r rows, histogram, raw output and files of a finished run.
+         */
+        get: operations["get_report_api_runs__run_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/files/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run File
+         * @description Download stdout, stderr, pgbench logs or scripts of a run; only its own directory.
+         */
+        get: operations["get_run_file_api_runs__run_id__files__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scripts": {
         parameters: {
             query?: never;
@@ -711,6 +751,13 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** HistogramBucketOut */
+        HistogramBucketOut: {
+            /** Upper Ms */
+            upper_ms: number;
+            /** Count */
+            count: number;
+        };
         /** InitProgressOut */
         InitProgressOut: {
             /** Done */
@@ -807,6 +854,88 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** Percentiles */
+        Percentiles: {
+            /** P50 */
+            p50?: number | null;
+            /** P95 */
+            p95?: number | null;
+            /** P99 */
+            p99?: number | null;
+        };
+        /** PgbenchSummaryOut */
+        PgbenchSummaryOut: {
+            /** Processed */
+            processed?: number | null;
+            /** Tps */
+            tps?: number | null;
+            /** Failed */
+            failed?: number | null;
+            /** Failed Pct */
+            failed_pct?: number | null;
+            /** Serialization Failures */
+            serialization_failures?: number | null;
+            /** Deadlock Failures */
+            deadlock_failures?: number | null;
+            /** Retried */
+            retried?: number | null;
+            /** Retried Pct */
+            retried_pct?: number | null;
+            /** Retries */
+            retries?: number | null;
+            /** Skipped */
+            skipped?: number | null;
+            /** Skipped Pct */
+            skipped_pct?: number | null;
+            /** Latency Avg Ms */
+            latency_avg_ms?: number | null;
+            /** Latency Stddev Ms */
+            latency_stddev_ms?: number | null;
+            /** Pgbench Version */
+            pgbench_version?: string | null;
+            /** Server Version */
+            server_version?: string | null;
+            /** Transaction Type */
+            transaction_type?: string | null;
+            /** Scale */
+            scale?: number | null;
+            /** Query Mode */
+            query_mode?: string | null;
+            /** Clients */
+            clients?: number | null;
+            /** Threads */
+            threads?: number | null;
+            /** Max Tries */
+            max_tries?: number | null;
+            /** Duration S */
+            duration_s?: number | null;
+            /** Transactions Per Client */
+            transactions_per_client?: number | null;
+            /** Processed Target */
+            processed_target?: number | null;
+            /** Latency Limit Ms */
+            latency_limit_ms?: number | null;
+            /** Above Limit */
+            above_limit?: number | null;
+            /** Above Limit Pct */
+            above_limit_pct?: number | null;
+            /** Lag Avg Ms */
+            lag_avg_ms?: number | null;
+            /** Lag Max Ms */
+            lag_max_ms?: number | null;
+            /** Initial Connection Ms */
+            initial_connection_ms?: number | null;
+            /**
+             * Aborted
+             * @default false
+             */
+            aborted: boolean;
+            /**
+             * Scripts
+             * @default []
+             */
+            scripts: components["schemas"]["ScriptSummaryOut"][];
         };
         /** ProfileCreate */
         ProfileCreate: {
@@ -929,6 +1058,22 @@ export interface components {
             /** Pgbench Version */
             pgbench_version: string | null;
         };
+        /** ReportOut */
+        ReportOut: {
+            run: components["schemas"]["RunOut"];
+            /** Series */
+            series: components["schemas"]["SeriesPointOut"][];
+            /** Statements */
+            statements: components["schemas"]["StatementOut"][];
+            /** Histogram */
+            histogram: components["schemas"]["HistogramBucketOut"][];
+            /** Raw Output */
+            raw_output: string;
+            /** Raw Output Truncated */
+            raw_output_truncated: boolean;
+            /** Files */
+            files: components["schemas"]["RunFileOut"][];
+        };
         /**
          * Role
          * @enum {string}
@@ -987,6 +1132,13 @@ export interface components {
             /** Confirmed Rules */
             confirmed_rules?: string[];
         };
+        /** RunFileOut */
+        RunFileOut: {
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
         /** RunOut */
         RunOut: {
             /** Id */
@@ -1031,11 +1183,33 @@ export interface components {
             progress: components["schemas"]["InitProgressOut"] | null;
             /** Log Tail */
             log_tail: components["schemas"]["LogLineOut"][];
+            summary: components["schemas"]["RunSummaryOut"] | null;
         };
         /** RunStarted */
         RunStarted: {
             /** Run Id */
             run_id: number;
+        };
+        /**
+         * RunSummaryOut
+         * @description `runs.summary_json`: pgbench's final report and how the series was obtained.
+         */
+        RunSummaryOut: {
+            /** Exit Code */
+            exit_code?: number | null;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            pgbench?: components["schemas"]["PgbenchSummaryOut"] | null;
+            percentiles?: components["schemas"]["Percentiles"] | null;
+            /** Series Source */
+            series_source?: ("aggregate" | "transactions" | "progress") | null;
+            /** Sampling Rate */
+            sampling_rate?: number | null;
+            /** Parse Error */
+            parse_error?: string | null;
         };
         /** ScriptIn */
         ScriptIn: {
@@ -1076,6 +1250,83 @@ export interface components {
             weight: number;
             /** Script Id */
             script_id?: number | null;
+        };
+        /** ScriptSummaryOut */
+        ScriptSummaryOut: {
+            /** Processed */
+            processed?: number | null;
+            /** Tps */
+            tps?: number | null;
+            /** Failed */
+            failed?: number | null;
+            /** Failed Pct */
+            failed_pct?: number | null;
+            /** Serialization Failures */
+            serialization_failures?: number | null;
+            /** Deadlock Failures */
+            deadlock_failures?: number | null;
+            /** Retried */
+            retried?: number | null;
+            /** Retried Pct */
+            retried_pct?: number | null;
+            /** Retries */
+            retries?: number | null;
+            /** Skipped */
+            skipped?: number | null;
+            /** Skipped Pct */
+            skipped_pct?: number | null;
+            /** Latency Avg Ms */
+            latency_avg_ms?: number | null;
+            /** Latency Stddev Ms */
+            latency_stddev_ms?: number | null;
+            /** Index */
+            index: number;
+            /** Name */
+            name: string;
+            /** Scenario */
+            scenario?: string | null;
+            /** Weight */
+            weight?: number | null;
+            /** Weight Pct */
+            weight_pct?: number | null;
+            /** Share Pct */
+            share_pct?: number | null;
+        };
+        /** SeriesPointOut */
+        SeriesPointOut: {
+            /** T S */
+            t_s: number;
+            /** Tx */
+            tx: number;
+            /** Tps */
+            tps: number;
+            /** Lat Avg Ms */
+            lat_avg_ms: number | null;
+            /** Lat Min Ms */
+            lat_min_ms: number | null;
+            /** Lat Max Ms */
+            lat_max_ms: number | null;
+            /** Lat Std Ms */
+            lat_std_ms: number | null;
+            /** Lag Ms */
+            lag_ms: number | null;
+            /** Failed */
+            failed: number;
+            /** Retried */
+            retried: number;
+        };
+        /** StatementOut */
+        StatementOut: {
+            /** Script */
+            script: string;
+            /** Idx */
+            idx: number;
+            /** Sql */
+            sql: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Failures */
+            failures: number | null;
         };
         /** SystemHealth */
         SystemHealth: {
@@ -2455,6 +2706,115 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_api_runs__run_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_file_api_runs__run_id__files__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": unknown;
+                    "application/gzip": unknown;
                 };
             };
             /** @description Unauthorized */
