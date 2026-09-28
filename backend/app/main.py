@@ -14,11 +14,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api import auth, health, profiles, runs, scripts, system, users
+from app.api import auth, health, profiles, runs, scripts, system, users, ws
 from app.config import Settings, load_settings
 from app.core.connection import check_connection
 from app.core.healthchecks import HealthService
-from app.core.runner import RunManager
+from app.core.runner import AgentOptions, RunManager
 from app.security.login_guard import IpLoginGuard
 from app.security.sessions import purge_expired
 from app.storage import repo
@@ -53,12 +53,23 @@ async def startup(app: FastAPI, settings: Settings) -> None:
         settings.auth.max_failed_logins, timedelta(minutes=settings.auth.lockout_min)
     )
     app.state.health = HealthService(
-        settings, app.state.config_file, head_revision(storage.sqlite_path)
+        settings,
+        app.state.config_file,
+        head_revision(storage.sqlite_path),
+        stuck_runs=lambda: app.state.runs.stuck_runs(),
     )
     app.state.secret_box = SecretBox(key)
     app.state.connection_checker = check_connection
     app.state.runs = RunManager(
-        sessionmaker, storage.runs_dir, settings.pgbench.max_parallel_runs, settings.pgbench.binary
+        sessionmaker,
+        storage.runs_dir,
+        settings.pgbench.max_parallel_runs,
+        settings.pgbench.binary,
+        agent=AgentOptions(
+            name=settings.agent.name,
+            sample_interval_s=settings.agent.sample_interval_s,
+            cpu_warning_percent=settings.agent.cpu_warning_percent,
+        ),
     )
     await app.state.runs.recover()
 
@@ -112,6 +123,7 @@ def create_app(settings: Settings | None = None, config_file: Path | None = None
     app.include_router(users.router)
     app.include_router(system.router)
     app.include_router(profiles.router)
+    app.include_router(ws.router)
     app.include_router(runs.router)
     app.include_router(scripts.router)
     return app
