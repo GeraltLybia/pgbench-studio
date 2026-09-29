@@ -11,7 +11,8 @@
     "typecheck": "vue-tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:api": "cd ../backend && uv run studio openapi -o ../frontend/openapi.json && cd ../frontend && openapi-typescript openapi.json -o src/types/api.ts"
+    "gen:api": "cd ../backend && uv run studio openapi -o ../frontend/openapi.json && cd ../frontend && openapi-typescript openapi.json -o src/types/api.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
@@ -34,6 +35,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.3",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vitest/coverage-v8": "^5.0.2",

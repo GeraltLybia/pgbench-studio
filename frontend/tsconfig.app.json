@@ -18,5 +18,5 @@
     "jsx": "preserve",
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "tests/unit/**/*.ts"]
 }
