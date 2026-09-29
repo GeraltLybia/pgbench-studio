@@ -6,12 +6,14 @@ import json
 import logging
 import re
 from collections import deque
+from datetime import timedelta
 from pathlib import Path
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, func, or_, select
 
 from app.api.deps import DbDep, EditorDep, SettingsDep, ViewerDep, client_ip
 from app.api.errors import api_error
@@ -23,10 +25,12 @@ from app.api.profiles import (
 )
 from app.config import Settings
 from app.core.command import build_bench_argv, build_dry_argv, render_command
+from app.core.compare import Side, metric_diffs, param_diffs
 from app.core.healthchecks import HealthService
 from app.core.limits import agent_cpu_count
 from app.core.plan import Plan, build_plan
 from app.core.report import ReportOptions
+from app.core.retention import delete_runs
 from app.core.runner import (
     LogLine,
     ProgressPlan,
@@ -39,6 +43,7 @@ from app.core.runner import (
 from app.schemas import (
     ActiveRunOut,
     CommandPreview,
+    CompareOut,
     ConnectionTestFail,
     DryRunRequest,
     DryRunResult,
@@ -46,16 +51,31 @@ from app.schemas import (
     HistogramBucketOut,
     InitProgressOut,
     LogLineOut,
+    MetricDiff,
+    ParamDiff,
     ReportOut,
+    ResourcePointOut,
     RunConfig,
     RunFileOut,
+    RunListItem,
+    RunNoteIn,
     RunOut,
+    RunPage,
     RunStarted,
     RunSummaryOut,
     SeriesPointOut,
     StatementOut,
 )
-from app.storage.models import Run, RunHistogram, RunSeries, RunStatement, RunStatus
+from app.storage.models import (
+    Run,
+    RunHistogram,
+    RunKind,
+    RunResource,
+    RunSeries,
+    RunStatement,
+    RunStatus,
+    utcnow,
+)
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +87,7 @@ RAW_OUTPUT_LIMIT = 256 * 1024
 # Files of a run directory offered for download: logs, pgbench logs and scripts.
 _FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _GZIP = "application/gzip"
+SPARKLINE_POINTS = 40
 
 _ERRORS: dict[int | str, dict[str, object]] = {
     401: {"model": ErrorResponse},
@@ -305,6 +326,138 @@ async def active_run(request: Request, db: DbDep, _user: ViewerDep) -> ActiveRun
     return ActiveRunOut(run_id=None, kind=None, status=None)
 
 
+def _like(text: str) -> str:
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _search(q: str) -> ColumnElement[bool]:
+    """«#128» or «128» finds the run; any text — the profile, a scenario or the note."""
+    text = q.strip().lstrip("#").strip()
+    if text.isdigit():
+        # A number is the run itself: every stored config is full of digits.
+        return Run.id == int(text)
+    return or_(
+        Run.config_json.like(_like(text), escape="\\"),
+        Run.note.like(_like(text), escape="\\"),
+    )
+
+
+def sparkline(tps: list[float], points: int = SPARKLINE_POINTS) -> list[float]:
+    """TPS averaged into at most `points` equal chunks."""
+    if len(tps) <= points:
+        return [round(v, 1) for v in tps]
+    size = len(tps) / points
+    out: list[float] = []
+    for i in range(points):
+        chunk = tps[round(i * size) : round((i + 1) * size)]
+        out.append(round(sum(chunk) / len(chunk), 1))
+    return out
+
+
+def _list_item(run: Run, spark: list[float]) -> RunListItem:
+    config: dict[str, Any] = json.loads(run.config_json)
+    rc: dict[str, Any] = config.get("run_config") or {}
+    summary = _summary(run)
+    pgbench = summary.pgbench if summary is not None and summary.complete else None
+    return RunListItem(
+        id=run.id,
+        status=run.status,
+        created_at=run.created_at,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        started_by=run.started_by,
+        stopped_by=run.stopped_by,
+        profile_id=run.profile_id,
+        profile_name=config.get("profile_name"),
+        scenarios=[f"{s['name']}@{s.get('weight', 1)}" for s in rc.get("scenarios", [])],
+        mode=rc.get("mode"),
+        duration_s=rc.get("duration_s"),
+        transactions=rc.get("transactions"),
+        clients=rc.get("clients"),
+        threads=rc.get("threads"),
+        tps=pgbench.tps if pgbench else None,
+        latency_avg_ms=pgbench.latency_avg_ms if pgbench else None,
+        failed=pgbench.failed if pgbench else None,
+        error=run.error,
+        note=run.note,
+        sparkline=spark,
+    )
+
+
+@router.get("", response_model=RunPage, responses=_ERRORS)
+async def list_runs(
+    db: DbDep,
+    _user: ViewerDep,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    profile_id: int | None = None,
+    status: Annotated[list[RunStatus] | None, Query(description="one or more statuses")] = None,
+    days: Annotated[int | None, Query(ge=1, le=3650)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> RunPage:
+    """History of benchmarks (not `pgbench -i`), newest first."""
+    where: list[ColumnElement[bool]] = [Run.kind == RunKind.bench.value]
+    if q and q.strip().lstrip("#").strip():
+        where.append(_search(q))
+    if profile_id is not None:
+        where.append(Run.profile_id == profile_id)
+    if status:
+        where.append(Run.status.in_([s.value for s in status]))
+    if days is not None:
+        where.append(Run.created_at >= utcnow() - timedelta(days=days))
+
+    total = await db.scalar(select(func.count()).select_from(Run).where(*where))
+    result = await db.execute(
+        select(Run).where(*where).order_by(Run.id.desc()).limit(limit).offset(offset)
+    )
+    runs = list(result.scalars())
+    series: dict[int, list[float]] = {r.id: [] for r in runs}
+    if runs:
+        rows = await db.execute(
+            select(RunSeries.run_id, RunSeries.tps)
+            .where(RunSeries.run_id.in_(list(series)))
+            .order_by(RunSeries.run_id, RunSeries.t_s)
+        )
+        for run_id, tps in rows:
+            series[run_id].append(tps)
+    return RunPage(items=[_list_item(r, sparkline(series[r.id])) for r in runs], total=total or 0)
+
+
+@router.get(
+    "/compare",
+    response_model=CompareOut,
+    responses={**_ERRORS, 409: {"model": ErrorResponse}},
+)
+async def compare_runs(
+    a: int, b: int, request: Request, db: DbDep, settings: SettingsDep, _user: ViewerDep
+) -> CompareOut:
+    """Two finished runs, series from 0 s each, metric differences in % of b and param diffs."""
+    run_a, run_b = await _get_run_or_404(db, a), await _get_run_or_404(db, b)
+    report_a = await _report(run_a, request, db, settings)
+    report_b = await _report(run_b, request, db, settings)
+    side_a, side_b = _side(report_a), _side(report_b)
+    return CompareOut(
+        a=report_a,
+        b=report_b,
+        metrics=[MetricDiff(**vars(m)) for m in metric_diffs(side_a, side_b)],
+        params=[ParamDiff(**vars(p)) for p in param_diffs(side_a, side_b)],
+    )
+
+
+def _side(report: ReportOut) -> Side:
+    summary = report.run.summary
+    pgbench = summary.pgbench if summary is not None and summary.complete else None
+    percentiles = summary.percentiles if summary is not None else None
+    return Side(
+        summary=pgbench.model_dump() if pgbench else {},
+        percentiles=percentiles.model_dump() if percentiles else {},
+        config=report.run.config,
+        server_version=report.run.server_version,
+        note=report.run.note,
+    )
+
+
 @router.post(
     "/{run_id}/cancel",
     status_code=202,
@@ -377,6 +530,7 @@ def _run_out(run: Run, request: Request, settings: Settings) -> RunOut:
         progress=progress,
         log_tail=log_tail,
         summary=_summary(run),
+        note=run.note,
     )
 
 
@@ -396,6 +550,43 @@ async def get_run(
     run_id: int, request: Request, db: DbDep, settings: SettingsDep, _user: ViewerDep
 ) -> RunOut:
     return _run_out(await _get_run_or_404(db, run_id), request, settings)
+
+
+@router.delete(
+    "/{run_id}",
+    status_code=204,
+    responses={**_ERRORS, 409: {"model": ErrorResponse}},
+)
+async def delete_run(
+    run_id: int, request: Request, db: DbDep, settings: SettingsDep, user: EditorDep
+) -> Response:
+    """Remove a finished run with its series and files."""
+    run = await _get_run_or_404(db, run_id)
+    manager: RunManager = request.app.state.runs
+    if RunStatus(run.status).is_active or run_id in manager.active_ids:
+        raise api_error(409, "run_active", "Запуск ещё выполняется: остановите его перед удалением")
+    await db.close()
+    await delete_runs(request.app.state.sessionmaker, settings.storage.runs_dir, [run_id])
+    log.info(
+        "run deleted", extra={"ip": client_ip(request), "username": user.username, "run_id": run_id}
+    )
+    return Response(status_code=204)
+
+
+@router.patch("/{run_id}", response_model=RunOut, responses=_ERRORS)
+async def update_run_note(
+    run_id: int,
+    body: RunNoteIn,
+    request: Request,
+    db: DbDep,
+    settings: SettingsDep,
+    _user: EditorDep,
+) -> RunOut:
+    """The run's note, e.g. what changed on the server between two runs."""
+    run = await _get_run_or_404(db, run_id)
+    run.note = (body.note or "").strip() or None
+    await db.commit()
+    return _run_out(run, request, settings)
 
 
 def run_files(run_dir: Path) -> list[RunFileOut]:
@@ -432,7 +623,11 @@ async def get_report(
     run_id: int, request: Request, db: DbDep, settings: SettingsDep, _user: ViewerDep
 ) -> ReportOut:
     """Summary, per-second series, -r rows, histogram, raw output and files of a finished run."""
-    run = await _get_run_or_404(db, run_id)
+    return await _report(await _get_run_or_404(db, run_id), request, db, settings)
+
+
+async def _report(run: Run, request: Request, db: DbDep, settings: Settings) -> ReportOut:
+    run_id = run.id
     if RunStatus(run.status).is_active:
         raise api_error(
             409, "run_active", "Запуск ещё выполняется: отчёт появится после завершения"
@@ -449,6 +644,9 @@ async def get_report(
         .where(RunHistogram.run_id == run_id)
         .order_by(RunHistogram.bucket_upper_ms)
     )
+    resources = await db.execute(
+        select(RunResource).where(RunResource.run_id == run_id).order_by(RunResource.t_s)
+    )
     run_dir = settings.storage.runs_dir / str(run_id)
     raw, truncated = _raw_output(run_dir / "stdout.log")
     return ReportOut(
@@ -459,6 +657,7 @@ async def get_report(
             HistogramBucketOut(upper_ms=h.bucket_upper_ms, count=h.count)
             for h in histogram.scalars()
         ],
+        resources=[ResourcePointOut.model_validate(r) for r in resources.scalars()],
         raw_output=raw,
         raw_output_truncated=truncated,
         files=run_files(run_dir),

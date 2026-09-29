@@ -22,6 +22,7 @@ from app.storage.models import (
     Profile,
     Run,
     RunHistogram,
+    RunResource,
     RunSeries,
     RunStatement,
     RunStatus,
@@ -338,6 +339,8 @@ async def test_live_progress_and_cancel(server: Server, runs: RunManager, pgbenc
         run = await db.get(Run, run_id)
         assert run is not None
         assert (run.status, run.stopped_by) == (RunStatus.cancelled, "it")
+    # stage 5: the agent series streamed during the run is kept for the report
+    assert len(await _rows(runs, RunResource, run_id)) >= 3
 
 
 # --- stage 4: report from real pgbench output ----------------------------------------------

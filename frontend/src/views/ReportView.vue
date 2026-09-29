@@ -1,23 +1,32 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/http'
-import { runsApi, type Report, type RunStatus } from '@/api/runs'
+import { runsApi, type Report, type RunConfig, type RunStatus } from '@/api/runs'
 import PageHeader from '@/components/layout/PageHeader.vue'
 import ExportMenu from '@/components/report/ExportMenu.vue'
 import LatencyBandChart from '@/components/report/LatencyBandChart.vue'
 import LatencyHistogram from '@/components/report/LatencyHistogram.vue'
 import RawOutput from '@/components/report/RawOutput.vue'
+import ResourceChart from '@/components/report/ResourceChart.vue'
 import RunParams from '@/components/report/RunParams.vue'
 import StatementBars from '@/components/report/StatementBars.vue'
 import TimeSeriesChart from '@/components/report/TimeSeriesChart.vue'
+import AppButton from '@/components/ui/AppButton.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import KpiTile from '@/components/ui/KpiTile.vue'
 import { formatInt, formatLatency, formatNumber, formatTime } from '@/composables/useFormat'
+import { useAuthStore } from '@/stores/auth'
+import { useLoadConfigStore } from '@/stores/loadConfig'
+import { useProfilesStore } from '@/stores/profiles'
+import { useSystemStore } from '@/stores/system'
 
 const route = useRoute()
 const router = useRouter()
 const runId = Number(route.params.id)
+const auth = useAuthStore()
+const system = useSystemStore()
+if (!system.info) void system.loadInfo().catch(() => undefined)
 
 const report = ref<Report | null>(null)
 const error = ref<string | null>(null)
@@ -117,6 +126,62 @@ const seriesNote = computed(() => {
   }
 })
 
+// --- actions: repeat, delete, note --------------------------------------------------------
+
+const runConfig = computed(() => (run.value?.config.run_config as RunConfig | undefined) ?? null)
+
+/** «Повторить»: the same parameters and scenario texts on the load screen, same profile. */
+async function repeat(): Promise<void> {
+  const r = run.value
+  if (!r || !runConfig.value) return
+  useLoadConfigStore().applyRun(runConfig.value)
+  const profiles = useProfilesStore()
+  if (!profiles.loaded) await profiles.load().catch(() => undefined)
+  // A deleted profile leaves the current one; the load screen then needs a checked connection.
+  const exists = profiles.profiles.some((p) => p.id === r.profile_id)
+  if (exists && r.profile_id !== profiles.activeId) profiles.select(r.profile_id)
+  await router.push('/load')
+}
+
+const deleting = ref(false)
+async function remove(): Promise<void> {
+  if (!window.confirm(`Удалить тест #${runId} из истории вместе с логами? Это нельзя отменить.`)) return
+  deleting.value = true
+  try {
+    await runsApi.remove(runId)
+    await router.push('/history')
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Не удалось удалить запуск'
+    deleting.value = false
+  }
+}
+
+const editingNote = ref(false)
+const noteDraft = ref('')
+const savingNote = ref(false)
+
+const noteInput = useTemplateRef<HTMLInputElement>('noteInput')
+
+async function editNote(): Promise<void> {
+  noteDraft.value = run.value?.note ?? ''
+  editingNote.value = true
+  await nextTick()
+  noteInput.value?.focus()
+}
+
+async function saveNote(): Promise<void> {
+  savingNote.value = true
+  try {
+    const updated = await runsApi.setNote(runId, noteDraft.value.trim() || null)
+    if (report.value) report.value.run.note = updated.note
+    editingNote.value = false
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : 'Не удалось сохранить заметку'
+  } finally {
+    savingNote.value = false
+  }
+}
+
 const meanTps = computed(() => {
   if (tps.value !== null) return tps.value
   const series = report.value?.series ?? []
@@ -131,9 +196,48 @@ const meanTps = computed(() => {
         <AppIcon v-if="run.status === 'completed'" name="check" :size="12" />
         {{ STATUS[run.status] }}
       </span>
+      <AppButton v-if="isBench" @click="router.push(`/history?with=${runId}`)">
+        <AppIcon name="chart" :size="14" /> Сравнить с…
+      </AppButton>
       <ExportMenu v-if="report" :run-id="runId" :files="report.files" />
+      <AppButton v-if="isBench && runConfig && auth.can('runs.start')" variant="primary" @click="repeat">
+        <AppIcon name="refresh" :size="14" /> Повторить
+      </AppButton>
+      <AppButton
+        v-if="report && auth.can('runs.delete')"
+        variant="ghost"
+        :loading="deleting"
+        aria-label="Удалить запуск"
+        title="Удалить запуск"
+        @click="remove"
+      >
+        <AppIcon name="trash" :size="14" />
+      </AppButton>
     </template>
   </PageHeader>
+
+  <div v-if="report" class="note-row">
+    <template v-if="editingNote">
+      <input
+        ref="noteInput"
+        v-model="noteDraft"
+        class="note-input"
+        maxlength="500"
+        placeholder="Что изменилось перед этим прогоном: индекс, настройка, версия…"
+        aria-label="Заметка к запуску"
+        @keyup.enter="saveNote"
+        @keyup.esc="editingNote = false"
+      />
+      <AppButton variant="primary" :loading="savingNote" @click="saveNote">Сохранить</AppButton>
+      <AppButton variant="ghost" @click="editingNote = false">Отмена</AppButton>
+    </template>
+    <template v-else>
+      <span v-if="report.run.note" class="note-text">Заметка: {{ report.run.note }}</span>
+      <button v-if="auth.can('runs.note')" type="button" class="link" @click="editNote">
+        {{ report.run.note ? 'Изменить' : '+ Заметка' }}
+      </button>
+    </template>
+  </div>
 
   <p v-if="error" class="notice-warning" role="alert">{{ error }}</p>
   <div v-else-if="!report" class="card muted loading">Загружаем отчёт…</div>
@@ -194,6 +298,13 @@ const meanTps = computed(() => {
       </div>
 
       <TimeSeriesChart :series="report.series" :mean-tps="meanTps" :note="seriesNote" />
+      <!-- Runs before agent samples were stored have none: no empty card for them. -->
+      <ResourceChart
+        v-if="report.resources.length"
+        :samples="report.resources"
+        :cpu-threshold="system.info?.cpu_warning_percent ?? 85"
+        :agent-name="system.info?.agent_name ?? null"
+      />
       <LatencyBandChart :series="report.series" />
       <StatementBars :statements="report.statements" />
 
@@ -229,6 +340,34 @@ const meanTps = computed(() => {
 .status.cancelled {
   background: var(--color-warning-bg);
   color: var(--color-orange-text);
+}
+
+.note-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -12px 0 20px;
+  font-size: 13px;
+}
+
+.note-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-field);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.link {
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .loading {
