@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api import auth, health, profiles, runs, scripts, system, users, ws
-from app.config import Settings, load_settings
+from app.config import ConfigError, Settings, load_settings
 from app.core.connection import check_connection
 from app.core.healthchecks import HealthService
 from app.core.retention import purge_loop
@@ -32,9 +32,23 @@ log = logging.getLogger(__name__)
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
+def check_writable(*directories: Path) -> None:
+    """A clear message instead of «unable to open database file» for a root-owned mount."""
+    for directory in directories:
+        with contextlib.suppress(OSError):
+            directory.mkdir(parents=True, exist_ok=True)
+        if not os.access(directory, os.W_OK | os.X_OK):
+            raise ConfigError(
+                f"Нет прав на запись в {directory} для пользователя uid {os.getuid()}. "
+                "Для каталога данных на хосте выполните: mkdir -p data && "
+                "sudo chown 10001:10001 data"
+            )
+
+
 async def startup(app: FastAPI, settings: Settings) -> None:
     key = settings.secret_key()  # refuses to start without a valid key
     storage = settings.storage
+    check_writable(storage.sqlite_path.parent, storage.runs_dir)
     await asyncio.to_thread(run_migrations, storage.sqlite_path)
     storage.runs_dir.mkdir(parents=True, exist_ok=True)
 

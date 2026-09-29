@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useIntervalFn } from '@vueuse/core'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon, { type IconName } from '@/components/ui/AppIcon.vue'
 import { ACTIVE_POLL_MS, useActiveRunStore } from '@/stores/activeRun'
@@ -27,6 +27,16 @@ const activeRun = useActiveRunStore()
 const route = useRoute()
 
 onMounted(() => void activeRun.refresh())
+// «При открытии приложения с сохранённым профилем проверка запускается автоматически» —
+// on any first screen, not only those that require a connection. After a reload the sidebar
+// mounts before /api/auth/me answers: wait for the role, it decides whether a check is allowed.
+watch(
+  () => auth.role,
+  (role) => {
+    if (role) void profiles.bootstrap(auth.can('connection.test')).catch(() => undefined)
+  },
+  { immediate: true },
+)
 useIntervalFn(() => void activeRun.refresh(), ACTIVE_POLL_MS)
 
 const NO_CHECK = 'Сначала успешно проверьте соединение'
