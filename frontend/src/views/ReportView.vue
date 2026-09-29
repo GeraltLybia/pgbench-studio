@@ -191,11 +191,13 @@ const meanTps = computed(() => {
 
 <template>
   <PageHeader :title="`Отчёт · тест #${runId}`" :subtitle="subtitle">
-    <template #actions>
+    <template #badge>
       <span v-if="run && STATUS[run.status]" class="status" :class="run.status">
         <AppIcon v-if="run.status === 'completed'" name="check" :size="12" />
         {{ STATUS[run.status] }}
       </span>
+    </template>
+    <template #actions>
       <AppButton v-if="isBench" @click="router.push(`/history?with=${runId}`)">
         <AppIcon name="chart" :size="14" /> Сравнить с…
       </AppButton>

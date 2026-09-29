@@ -108,7 +108,10 @@ jobs:
           sed -i "s|^PGB_STUDIO_ADMIN_PASSWORD=.*|PGB_STUDIO_ADMIN_PASSWORD=$admin_password|" .env
           echo "E2E_ADMIN_PASSWORD=$admin_password" >> "$GITHUB_ENV"
       - name: compose stack
-        run: docker compose up -d --build --wait
+        # The backend runs as uid/gid 10001: the host data directory must be writable for it.
+        run: |
+          mkdir -p data && sudo chown 10001:10001 data
+          docker compose up -d --build --wait
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: frontend/package.json
