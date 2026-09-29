@@ -5,6 +5,8 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Role } from '@/auth/permissions'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useProfilesStore } from '@/stores/profiles'
+import { CHECK_OK, PROFILE } from './fixtures'
 import { jsonResponse } from './helpers'
 
 beforeEach(() => {
@@ -63,4 +65,64 @@ describe('AppSidebar · active run', () => {
     await vi.waitFor(() => expect(wrapper.find('a[href="/runs/5"]').exists()).toBe(true))
     expect(wrapper.get('a[href="/runs/5"]').text()).toContain('идёт')
   })
+})
+
+describe('AppSidebar · saved profile', () => {
+  it('checks the saved profile as soon as the app opens, on any screen', async () => {
+    localStorage.setItem('pgbs-active-profile', String(PROFILE.id))
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const path = input instanceof Request ? input.url : String(input)
+        calls.push(path)
+        if (path === '/api/profiles') return Promise.resolve(jsonResponse(200, [PROFILE]))
+        if (path === '/api/profiles/test') return Promise.resolve(jsonResponse(200, CHECK_OK))
+        return Promise.resolve(jsonResponse(500))
+      }),
+    )
+    mountAs('editor')
+    await vi.waitFor(() => expect(calls).toContain('/api/profiles/test'))
+    expect(useProfilesStore().connected).toBe(true)
+    localStorage.clear()
+  })
+
+  it('viewers only load profiles: they may not test connections', async () => {
+    localStorage.setItem('pgbs-active-profile', String(PROFILE.id))
+    const calls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const path = input instanceof Request ? input.url : String(input)
+        calls.push(path)
+        return Promise.resolve(path === '/api/profiles' ? jsonResponse(200, [PROFILE]) : jsonResponse(500))
+      }),
+    )
+    mountAs('viewer')
+    await vi.waitFor(() => expect(calls).toContain('/api/profiles'))
+    expect(calls).not.toContain('/api/profiles/test')
+    localStorage.clear()
+  })
+})
+
+it('waits for the role before checking the saved profile (page reload)', async () => {
+  localStorage.setItem('pgbs-active-profile', String(PROFILE.id))
+  const calls: string[] = []
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: RequestInfo | URL) => {
+      const path = input instanceof Request ? input.url : String(input)
+      calls.push(path)
+      if (path === '/api/profiles') return Promise.resolve(jsonResponse(200, [PROFILE]))
+      if (path === '/api/profiles/test') return Promise.resolve(jsonResponse(200, CHECK_OK))
+      return Promise.resolve(jsonResponse(500))
+    }),
+  )
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { template: '<div />' } }] })
+  mount(AppSidebar, { global: { plugins: [router] } }) // no user yet: /api/auth/me still pending
+  await new Promise((r) => setTimeout(r, 10))
+  expect(calls).not.toContain('/api/profiles')
+  useAuthStore().user = { id: 1, username: 'u', role: 'editor', must_change_password: false }
+  await vi.waitFor(() => expect(calls).toContain('/api/profiles/test'))
+  localStorage.clear()
 })
