@@ -5,7 +5,11 @@ defineProps<{ title: string; subtitle?: string }>()
 <template>
   <header class="page-header">
     <div>
-      <h1>{{ title }}</h1>
+      <div class="title-row">
+        <h1>{{ title }}</h1>
+        <!-- Status next to the title, as on the mockups («выполняется», «завершён»). -->
+        <slot name="badge" />
+      </div>
       <p v-if="subtitle" class="muted subtitle">{{ subtitle }}</p>
     </div>
     <div class="actions"><slot name="actions" /></div>
@@ -24,6 +28,13 @@ defineProps<{ title: string; subtitle?: string }>()
 .page-header > div:first-child {
   flex: 1 1 320px;
   min-width: 0;
+}
+
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 .subtitle {

@@ -67,7 +67,7 @@ const chips = computed(() => {
       <span :style="{ width: `${pct}%` }" />
     </div>
     <ul class="chips">
-      <li v-for="chip in chips" :key="chip" class="mono">{{ chip }}</li>
+      <li v-for="chip in chips" :key="chip">{{ chip }}</li>
     </ul>
   </section>
 </template>
