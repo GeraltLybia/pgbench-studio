@@ -326,6 +326,7 @@ class RunOut(BaseModel):
     progress: InitProgressOut | None
     log_tail: list[LogLineOut]
     summary: RunSummaryOut | None
+    note: str | None
 
 
 class SeriesPointOut(BaseModel):
@@ -353,6 +354,15 @@ class StatementOut(BaseModel):
     failures: int | None
 
 
+class ResourcePointOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    t_s: float
+    cpu_pct: float
+    ram_pct: float
+    ram_used_bytes: int
+
+
 class HistogramBucketOut(BaseModel):
     upper_ms: float
     count: int
@@ -368,6 +378,7 @@ class ReportOut(BaseModel):
     series: list[SeriesPointOut]
     statements: list[StatementOut]
     histogram: list[HistogramBucketOut]
+    resources: list[ResourcePointOut]
     # pgbench's stdout: the final report, as printed.
     raw_output: str
     raw_output_truncated: bool
@@ -519,3 +530,63 @@ class ActiveRunOut(BaseModel):
     run_id: int | None
     kind: Literal["init", "bench"] | None
     status: Literal["queued", "running", "finalizing"] | None
+
+
+class RunListItem(BaseModel):
+    """A benchmark in the history table."""
+
+    id: int
+    status: Literal["queued", "running", "finalizing", "completed", "failed", "cancelled"]
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    started_by: str | None
+    stopped_by: str | None
+    profile_id: int | None
+    profile_name: str | None
+    scenarios: list[str]  # name@weight
+    mode: Literal["duration", "transactions"] | None
+    duration_s: int | None
+    transactions: int | None
+    clients: int | None
+    threads: int | None
+    tps: float | None
+    latency_avg_ms: float | None
+    failed: int | None
+    error: str | None
+    note: str | None
+    # TPS over the run, at most SPARKLINE_POINTS averages.
+    sparkline: list[float]
+
+
+class RunPage(BaseModel):
+    items: list[RunListItem]
+    total: int
+
+
+class RunNoteIn(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+
+
+class MetricDiff(BaseModel):
+    key: str
+    label: str
+    a: float | None
+    b: float | None
+    # (a - b) / b, in percent
+    diff_pct: float | None
+    better: Literal["higher", "lower"]
+
+
+class ParamDiff(BaseModel):
+    key: str
+    label: str
+    a: str | None
+    b: str | None
+
+
+class CompareOut(BaseModel):
+    a: ReportOut
+    b: ReportOut
+    metrics: list[MetricDiff]
+    params: list[ParamDiff]

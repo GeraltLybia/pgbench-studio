@@ -21,12 +21,20 @@ defineProps<{ title: string; subtitle?: string }>()
   margin-bottom: 24px;
 }
 
+.page-header > div:first-child {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
 .subtitle {
   margin: 6px 0 0;
 }
 
 .actions {
+  flex: 0 1 auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 12px;
 }
 </style>

@@ -114,7 +114,7 @@ async function mountReport() {
 
 describe('ReportView', () => {
   it('shows the mockup numbers from the stored summary', async () => {
-    mockFetch(jsonResponse(200, report()))
+    mockFetch(jsonResponse(500), jsonResponse(200, report()))
     const { wrapper } = await mountReport()
     const text = wrapper.text()
     expect(text).toContain('Отчёт · тест #128')
@@ -134,6 +134,7 @@ describe('ReportView', () => {
 
   it('explains a stopped run without a pgbench summary', async () => {
     mockFetch(
+      jsonResponse(500),
       jsonResponse(
         200,
         report(
@@ -150,13 +151,13 @@ describe('ReportView', () => {
   })
 
   it('sends an active run back to its live screen', async () => {
-    mockFetch(jsonResponse(409, { detail: { code: 'run_active', message: 'Запуск ещё выполняется' } }))
+    mockFetch(jsonResponse(500), jsonResponse(409, { detail: { code: 'run_active', message: 'Запуск ещё выполняется' } }))
     const { router } = await mountReport()
     expect(router.currentRoute.value.path).toBe('/runs/128')
   })
 
   it('shows other errors', async () => {
-    mockFetch(jsonResponse(404, { detail: { code: 'run_not_found', message: 'Запуск не найден' } }))
+    mockFetch(jsonResponse(500), jsonResponse(404, { detail: { code: 'run_not_found', message: 'Запуск не найден' } }))
     const { wrapper } = await mountReport()
     expect(wrapper.get('[role="alert"]').text()).toBe('Запуск не найден')
   })
@@ -165,7 +166,7 @@ describe('ReportView', () => {
 it('sub-millisecond latencies keep three decimals', async () => {
   const r = report({}, { percentiles: { p50: 0.052, p95: 0.246, p99: 0.311 } })
   r.run.summary!.pgbench!.latency_avg_ms = 0.075
-  mockFetch(jsonResponse(200, r))
+  mockFetch(jsonResponse(500), jsonResponse(200, r))
   const { wrapper } = await mountReport()
   expect(wrapper.text()).toContain('0,246 / 0,311')
   expect(wrapper.text()).toContain('0,075')

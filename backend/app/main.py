@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -18,6 +19,7 @@ from app.api import auth, health, profiles, runs, scripts, system, users, ws
 from app.config import Settings, load_settings
 from app.core.connection import check_connection
 from app.core.healthchecks import HealthService
+from app.core.retention import purge_loop
 from app.core.runner import AgentOptions, RunManager
 from app.security.login_guard import IpLoginGuard
 from app.security.sessions import purge_expired
@@ -72,6 +74,14 @@ async def startup(app: FastAPI, settings: Settings) -> None:
         ),
     )
     await app.state.runs.recover()
+    app.state.purge = asyncio.create_task(
+        purge_loop(
+            sessionmaker,
+            storage.runs_dir,
+            storage.keep_runs_days,
+            lambda: app.state.runs.active_ids,
+        )
+    )
 
 
 def create_app(settings: Settings | None = None, config_file: Path | None = None) -> FastAPI:
@@ -82,6 +92,11 @@ def create_app(settings: Settings | None = None, config_file: Path | None = None
         await startup(app, settings)
         log.info("backend started", extra={"version": __version__, "agent": settings.agent.name})
         yield
+        # Wait for the purge to stop before the engine goes: a pass cancelled mid-query
+        # would otherwise leave an aiosqlite connection behind while the engine is disposed.
+        app.state.purge.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await app.state.purge
         await app.state.runs.shutdown()
         await app.state.engine.dispose()
 

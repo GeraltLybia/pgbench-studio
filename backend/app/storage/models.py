@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, TypeDecorator
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text, TypeDecorator
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -137,7 +137,7 @@ class Run(Base):
     confirmed_rules_json: Mapped[str | None] = mapped_column(Text, default=None)
     config_json: Mapped[str] = mapped_column(Text)
     argv_json: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
     started_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
     server_version: Mapped[str | None] = mapped_column(String(64), default=None)
@@ -202,3 +202,16 @@ class RunHistogram(Base):
     run_id: Mapped[int] = _run_fk()
     bucket_upper_ms: Mapped[float] = mapped_column(Float)
     count: Mapped[int] = mapped_column(Integer)
+
+
+class RunResource(Base):
+    """Agent CPU and RAM sample taken during the run."""
+
+    __tablename__ = "run_resources"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = _run_fk()
+    t_s: Mapped[float] = mapped_column(Float)
+    cpu_pct: Mapped[float] = mapped_column(Float)
+    ram_pct: Mapped[float] = mapped_column(Float)
+    ram_used_bytes: Mapped[int] = mapped_column(BigInteger)

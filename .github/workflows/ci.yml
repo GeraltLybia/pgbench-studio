@@ -12,6 +12,7 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -27,12 +28,14 @@ jobs:
       - name: mypy
         run: uv run mypy app
       - name: pytest
-        run: uv run pytest --cov=app --cov-report=json --cov-report=term
+        # -v: one line per test, so the log shows where a run stops.
+        run: uv run pytest -v --cov=app --cov-report=json --cov-report=term
       - name: coverage thresholds (core/api 85 %, rest 70 %)
         run: uv run python scripts/check_coverage.py
 
   integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
@@ -57,6 +60,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
