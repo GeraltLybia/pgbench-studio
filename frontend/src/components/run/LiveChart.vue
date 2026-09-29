@@ -13,6 +13,7 @@ const colors = useChartColors()
 const tps = computed<Point[]>(() => downsample(props.points.map((p) => [p.t, p.tps])))
 const latency = computed<Point[]>(() => downsample(props.points.map((p) => [p.t, p.lat_ms])))
 const lastT = computed(() => props.points.at(-1)?.t ?? 0)
+const ru = (v: number) => v.toLocaleString('ru-RU')
 
 const option = computed<EChartsOption>(() => {
   const c = colors.value
@@ -37,8 +38,8 @@ const option = computed<EChartsOption>(() => {
       axisLine: { lineStyle: { color: c.border } },
     },
     yAxis: [
-      { type: 'value', min: 0, axisLabel, splitLine },
-      { type: 'value', min: 0, axisLabel: { ...axisLabel, color: c.latency }, splitLine: { show: false } },
+      { type: 'value', min: 0, axisLabel: { ...axisLabel, formatter: ru }, splitLine },
+      { type: 'value', min: 0, axisLabel: { ...axisLabel, color: c.latency, formatter: ru }, splitLine: { show: false } },
     ],
     series: [
       {

@@ -88,6 +88,55 @@ jobs:
       - name: Vitest
         run: pnpm test
 
+  e2e:
+    # Playwright against the real stack: nginx + backend images, PostgreSQL 13 and 18.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: test config (local HTTP) and secrets
+        run: |
+          sed -e 's/^\(  trusted_proxies:\).*/\1 []/' \
+              -e 's/^\(  dev_mode:\).*/\1 true/' \
+              -e 's/^\(  cookie_secure:\).*/\1 false/' config.example.yaml > config.yaml
+          grep -E 'dev_mode: true|cookie_secure: false' config.yaml
+          admin_password="$(openssl rand -hex 16)"
+          echo "::add-mask::$admin_password"
+          cp .env.example .env
+          sed -i "s|^PGB_STUDIO_SECRET_KEY=.*|PGB_STUDIO_SECRET_KEY=$(openssl rand -base64 32 | tr '+/' '-_')|" .env
+          sed -i "s|^PGB_STUDIO_ADMIN_PASSWORD=.*|PGB_STUDIO_ADMIN_PASSWORD=$admin_password|" .env
+          echo "E2E_ADMIN_PASSWORD=$admin_password" >> "$GITHUB_ENV"
+      - name: compose stack
+        # The backend runs as uid/gid 10001: the host data directory must be writable for it.
+        run: |
+          mkdir -p data && sudo chown 10001:10001 data
+          docker compose up -d --build --wait
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Playwright
+        run: pnpm e2e
+        working-directory: frontend
+      - name: stack logs
+        if: failure()
+        run: docker compose logs --no-color --tail=300
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
   images:
     runs-on: ubuntu-latest
     needs: [backend, integration, frontend]

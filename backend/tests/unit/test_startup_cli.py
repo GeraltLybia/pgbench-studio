@@ -150,3 +150,20 @@ def test_reset_admin_needs_username(
     monkeypatch.delenv("PGB_STUDIO_ADMIN_USER", raising=False)
     config = write_config(tmp_path, settings)
     assert cli.main(["--config", str(config), "users", "reset-admin"]) == 2
+
+
+def test_startup_explains_a_read_only_data_dir(
+    make_settings: Callable[..., Settings], tmp_path: Path, secret_env: str
+) -> None:
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o555)
+    try:
+        settings = make_settings(
+            storage={"sqlite_path": str(locked / "studio.db"), "runs_dir": str(locked / "runs")}
+        )
+        app = create_app(settings)
+        with pytest.raises(ConfigError, match="chown 10001:10001"), TestClient(app):
+            pass
+    finally:
+        locked.chmod(0o755)

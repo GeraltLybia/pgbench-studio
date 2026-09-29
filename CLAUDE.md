@@ -62,10 +62,13 @@
 - проверки: `pnpm lint && pnpm typecheck && pnpm test`
 - типы API из OpenAPI бэкенда: `pnpm gen:api` (обновляет `openapi.json` и `src/types/api.ts`, руками не править)
 - сборка: `pnpm build`
+- e2e (Playwright) против поднятого compose: `E2E_ADMIN_PASSWORD=<пароль из .env> pnpm e2e` (адрес — `E2E_BASE_URL`, по умолчанию http://localhost:8080; браузер один раз: `pnpm exec playwright install chromium`)
+- скриншоты всех экранов в обеих темах: `SCREENSHOTS=../docs/screenshots E2E_ADMIN_PASSWORD=… pnpm e2e screens`
 
 Docker compose (из корня):
 
 - первый запуск: `cp config.example.yaml config.yaml && cp .env.example .env`, в `.env` задать `PGB_STUDIO_SECRET_KEY` (`studio gen-key`) и пароль первого админа; для локального HTTP в `config.yaml` — `server.dev_mode: true`, `auth.cookie_secure: false`
+- каталог данных на Linux: `mkdir -p data && sudo chown 10001:10001 data` (бэкенд работает от uid/gid 10001)
 - запуск: `docker compose up -d --build`, состояние: `docker compose ps` (все `healthy`), приложение — http://localhost:8080
 - тестовые базы внутри сети compose: `pg13:5432` и `pg18:5432`, пользователь и база `bench`, пароль `PGB_TEST_DB_PASSWORD` (по умолчанию `bench`)
 - аварийный доступ: `docker compose exec backend studio users reset-admin`

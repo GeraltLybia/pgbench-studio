@@ -109,10 +109,12 @@ watch(status, (value) => {
 
 <template>
   <PageHeader :title="`Тест #${runId}`" :subtitle="subtitle">
-    <template #actions>
+    <template #badge>
       <span v-if="status" class="status" :class="status">
         <i v-if="running" class="pulse" />{{ STATUS[status] }}
       </span>
+    </template>
+    <template #actions>
       <AppButton
         v-if="running && auth.can('runs.start')"
         variant="danger"

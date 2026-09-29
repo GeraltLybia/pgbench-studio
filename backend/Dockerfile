@@ -41,7 +41,10 @@ COPY migrations ./migrations
 COPY app ./app
 RUN uv sync --frozen --no-dev
 
-RUN useradd --system --uid 10001 --home-dir /app studio \
+# Fixed uid and gid: a host directory mounted at /data is prepared with
+# `chown 10001:10001` (see README).
+RUN groupadd --system --gid 10001 studio \
+ && useradd --system --uid 10001 --gid 10001 --home-dir /app studio \
  && install -d -o studio -g studio /data
 USER studio
 VOLUME ["/data"]
