@@ -216,3 +216,13 @@ def test_remove_run_dir_never_follows_links(tmp_path: Any) -> None:
     remove_run_dir(runs, 7)
     remove_run_dir(runs, 8)  # missing: nothing to do
     assert (outside / "keep.txt").exists()
+
+
+def test_shutdown_waits_for_the_purge_task(settings: Settings, secret_env: str) -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app(settings), base_url="https://t") as client:
+        task = client.app.state.purge  # type: ignore[attr-defined]
+    assert task.done() and task.cancelled()

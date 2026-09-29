@@ -72,6 +72,8 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-q -m 'not integration'"
 markers = ["integration: needs Docker and pgbench 18 (run with -m integration)"]
+# A test stuck this long dumps every thread's stack instead of hanging silently.
+faulthandler_timeout = 120
 
 [tool.coverage.run]
 source = ["app"]
