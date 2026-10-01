@@ -1,5 +1,5 @@
 /**
- * Load parameters: zod schema and the limit rules from docs/architecture.md, «Параметры нагрузки».
+ * Load parameters: zod schema and the limit rules, согласно документации («Параметры нагрузки»).
  * Mirrors backend app/core/limits.py (same codes, levels and thresholds); the backend enforces
  * them again on POST /api/runs.
  */

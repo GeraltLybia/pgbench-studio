@@ -1,5 +1,5 @@
 /**
- * WebSocket messages of /api/runs/{id}/ws (docs/architecture.md, «WebSocket»).
+ * WebSocket messages of /api/runs/{id}/ws (согласно документации, «WebSocket»).
  * Hand-written: WebSocket payloads are not part of the OpenAPI schema.
  */
 

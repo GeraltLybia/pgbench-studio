@@ -1,4 +1,4 @@
-/** Role matrix from docs/architecture.md, «Роли и доступ». The backend enforces it too. */
+/** Role matrix, согласно документации («Роли и доступ»). The backend enforces it too. */
 
 export type Role = 'viewer' | 'editor' | 'admin'
 

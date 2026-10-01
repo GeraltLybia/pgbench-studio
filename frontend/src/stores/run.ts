@@ -11,7 +11,7 @@ import type {
 } from '@/types/events'
 import { FINAL_STATUSES } from '@/types/events'
 
-/** Log lines kept in the browser (docs/architecture.md, «Состояние»). */
+/** Log lines kept in the browser (согласно документации, «Состояние»). */
 export const LOG_BUFFER = 5000
 
 /** One store per run id: the state of its WebSocket. */

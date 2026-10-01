@@ -4,7 +4,7 @@ import type { Text } from '@codemirror/state'
 import type { Extension } from '@codemirror/state'
 import type { ScriptDiagnostic } from '@/api/scripts'
 
-/** Debounce of the lint request after the last edit (docs/architecture.md, «Редактор»). */
+/** Debounce of the lint request after the last edit (согласно документации, «Редактор»). */
 export const LINT_DELAY_MS = 400
 
 const SEVERITY: Record<ScriptDiagnostic['severity'], Diagnostic['severity']> = {

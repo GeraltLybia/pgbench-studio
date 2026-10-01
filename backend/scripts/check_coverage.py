@@ -1,6 +1,6 @@
 """Enforce per-directory coverage thresholds from a coverage.py JSON report.
 
-85 % for app/core and app/api, 70 % for the rest of app/ (see docs/architecture.md, «Тестирование»).
+85 % for app/core and app/api, 70 % for the rest of app/ (согласно документации, «Тестирование»).
 """
 
 from __future__ import annotations
