@@ -1,6 +1,6 @@
 """Dangerous SQL rules, evaluated on the pglast parse tree (not on text).
 
-Levels follow docs/architecture.md, «Защита тестируемой базы → Сценарии»:
+Levels, согласно документации («Защита тестируемой базы → Сценарии»):
 - forbidden: the run is impossible for anyone;
 - danger: allowed only after explicit confirmation;
 - attention: marked in the editor, no confirmation.

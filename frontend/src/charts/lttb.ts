@@ -1,6 +1,6 @@
 /**
  * Largest-Triangle-Three-Buckets downsampling for long series
- * (docs/architecture.md: more than 3600 points).
+ * (согласно документации: more than 3600 points).
  */
 export const LTTB_THRESHOLD = 3600
 

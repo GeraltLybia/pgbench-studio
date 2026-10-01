@@ -1,4 +1,4 @@
-"""Load parameter checks from docs/architecture.md, «Параметры нагрузки».
+"""Load parameter checks, согласно документации («Параметры нагрузки»).
 
 Errors block the run; warnings need an explicit confirmation. The frontend mirrors these
 rules in validation/runConfig.ts; the backend is the one that enforces them.

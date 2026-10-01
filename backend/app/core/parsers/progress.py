@@ -97,7 +97,7 @@ class ProgressEstimator:
     """Completion share and time left.
 
     `-T`: exact, t / T. `-t`: an estimate — transactions accumulated as tps × interval
-    against clients × transactions (docs/architecture.md, «Раннер pgbench»).
+    against clients × transactions (согласно документации, «Раннер pgbench»).
     """
 
     def __init__(
