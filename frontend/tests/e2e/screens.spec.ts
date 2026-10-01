@@ -1,7 +1,7 @@
 /**
  * Screenshots of every screen in both themes, for checking against the mockups and for the
  * README. Not part of the e2e run: only with SCREENSHOTS=<directory>, e.g.
- *   SCREENSHOTS=../docs/screenshots E2E_ADMIN_PASSWORD=… pnpm e2e screens
+ *   SCREENSHOTS=../assets/screenshots E2E_ADMIN_PASSWORD=… pnpm e2e screens
  * Needs a profile for the test database on the stack (the flow spec creates one).
  */
 import { expect, test, type Page } from '@playwright/test'

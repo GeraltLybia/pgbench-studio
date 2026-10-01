@@ -30,3 +30,7 @@ test-results/
 
 # local Claude Code launch config
 .claude/
+
+# local working documents, not published
+/docs/
+/CLAUDE.md
