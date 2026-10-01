@@ -18,17 +18,17 @@ pgbench studio превращает pgbench в понятный веб-инст�
 Во время теста видно всё: прогресс с точным временем окончания, TPS и latency каждую секунду, живые логи и нагрузку на сам агент. Студия предупредит, если упор оказался в генератор нагрузки, а не в базу. После теста — отчёт с точными цифрами pgbench, задержками по каждому запросу, перцентилями и гистограммой. Два прогона можно положить рядом и увидеть разницу в процентах: помог ли индекс, что дала новая настройка, как ведёт себя PostgreSQL 13 против 18.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-05-report.png">
-  <img alt="Отчёт: TPS, latency, ресурсы агента" src="docs/screenshots/light-05-report.png">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-05-report.png">
+  <img alt="Отчёт: TPS, latency, ресурсы агента" src="assets/screenshots/light-05-report.png">
 </picture>
 
 | Выполнение | Нагрузка и редактор сценариев |
 | --- | --- |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-04-run.png"><img alt="Живой прогресс, ресурсы агента и график" src="docs/screenshots/light-04-run.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-03-load.png"><img alt="Параметры нагрузки и сценарии с проверкой SQL" src="docs/screenshots/light-03-load.png"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-04-run.png"><img alt="Живой прогресс, ресурсы агента и график" src="assets/screenshots/light-04-run.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-03-load.png"><img alt="Параметры нагрузки и сценарии с проверкой SQL" src="assets/screenshots/light-03-load.png"></picture> |
 | **История и сравнение** | **Подключение** |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-06-history.png"><img alt="История запусков и сравнение двух прогонов" src="docs/screenshots/light-06-history.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-02-connect.png"><img alt="Профиль подключения, проверка и инициализация" src="docs/screenshots/light-02-connect.png"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-06-history.png"><img alt="История запусков и сравнение двух прогонов" src="assets/screenshots/light-06-history.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/dark-02-connect.png"><img alt="Профиль подключения, проверка и инициализация" src="assets/screenshots/light-02-connect.png"></picture> |
 
-Светлая и тёмная тема — скриншоты выше следуют теме GitHub. Все экраны: [docs/screenshots](docs/screenshots).
+Светлая и тёмная тема — скриншоты выше следуют теме GitHub. Все экраны: [assets/screenshots](assets/screenshots).
 
 ## Возможности
 
@@ -129,7 +129,7 @@ docker compose exec backend studio users reset-admin
 
 ## Разработка
 
-Бэкенд — Python 3.12, FastAPI, SQLite; фронтенд — Vue 3, TypeScript, Vite, ECharts, CodeMirror 6. Архитектура и принятые решения — [docs/architecture.md](docs/architecture.md) и [docs/PLAN.md](docs/PLAN.md).
+Бэкенд — Python 3.12, FastAPI, SQLite; фронтенд — Vue 3, TypeScript, Vite, ECharts, CodeMirror 6.
 
 ```bash
 # бэкенд (из backend/)
@@ -145,7 +145,7 @@ pnpm gen:api                          # типы API из OpenAPI бэкенда
 
 # e2e против поднятого compose (из frontend/)
 E2E_ADMIN_PASSWORD=… pnpm e2e
-SCREENSHOTS=../docs/screenshots E2E_ADMIN_PASSWORD=… pnpm e2e screens   # скриншоты для README
+SCREENSHOTS=../assets/screenshots E2E_ADMIN_PASSWORD=… pnpm e2e screens   # скриншоты для README
 ```
 
 CI на каждый PR: линтеры и unit-тесты с порогами покрытия, интеграционные тесты с настоящим pgbench 18 против PostgreSQL 13 и 18, Playwright e2e на поднятом стенде и сборка образов.
